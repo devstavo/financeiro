@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Financeiro Farinea',
-  description: 'Financeiro Farinea - Controle Financeiro',
-  generator: 'Financeiro Farinea',
+  title: "Financeiro Farinea",
+  description: "Controle Financeiro Farinea",
+  generator: 'Farinea',
 }
 
 export default function RootLayout({

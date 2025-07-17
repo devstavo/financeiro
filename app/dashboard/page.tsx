@@ -261,7 +261,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Controle Financeiro</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Financeiro Farinea</h1>
             <p className="text-sm text-gray-600">
               {isSupabaseConfigured ? "Dados salvos na nuvem ☁️" : "Dados salvos localmente 💾"}
             </p>
