@@ -4,34 +4,57 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || ""
 
-// Verifica se o Supabase está configurado corretamente
-// A URL deve começar com 'https://', conter '.supabase.co' e a chave deve ter um tamanho razoável
-export const isSupabaseConfigured = !!(
-  (
-    supabaseUrl &&
-    supabaseAnonKey &&
-    supabaseUrl.startsWith("https://") &&
-    supabaseUrl.includes(".supabase.co") &&
-    supabaseAnonKey.length > 20
-  ) // Uma chave Supabase geralmente é bem longa
+// --- LINHAS DE DEBUG MELHORADAS ---
+console.log("DEBUG: NEXT_PUBLIC_SUPABASE_URL lida:", supabaseUrl || "VAZIA/UNDEFINED")
+console.log("DEBUG: URL válida?", supabaseUrl ? "SIM" : "NÃO")
+console.log("DEBUG: URL começa com https://?", supabaseUrl.startsWith("https://"))
+console.log("DEBUG: URL contém .supabase.co?", supabaseUrl.includes(".supabase.co"))
+console.log(
+  "DEBUG: NEXT_PUBLIC_SUPABASE_ANON_KEY lida:",
+  supabaseAnonKey ? `Chave presente (${supabaseAnonKey.length} caracteres)` : "VAZIA/UNDEFINED",
 )
+
+// Validação mais rigorosa
+const isValidUrl = (url: string): boolean => {
+  try {
+    new URL(url)
+    return url.startsWith("https://") && url.includes(".supabase.co")
+  } catch {
+    return false
+  }
+}
+
+// Verifica se o Supabase está configurado corretamente
+export const isSupabaseConfigured = !!(
+  supabaseUrl &&
+  supabaseAnonKey &&
+  isValidUrl(supabaseUrl) &&
+  supabaseAnonKey.length > 20
+)
+
+console.log("DEBUG: isSupabaseConfigured:", isSupabaseConfigured)
+// --- FIM DAS LINHAS DE DEBUG ---
 
 let supabaseClientInstance: SupabaseClient | null = null
 
 // Função para obter a instância do cliente Supabase
-// Ele só cria o cliente se as variáveis estiverem válidas
 export const getSupabaseClient = (): SupabaseClient | null => {
   if (!isSupabaseConfigured) {
-    return null // Não cria o cliente se não estiver configurado
+    console.log("DEBUG: Supabase não configurado, retornando null")
+    return null
   }
 
   // Usa o padrão Singleton para criar o cliente apenas uma vez
   if (!supabaseClientInstance) {
     try {
+      console.log("DEBUG: Tentando criar cliente Supabase...")
       supabaseClientInstance = createClient(supabaseUrl, supabaseAnonKey)
+      console.log("DEBUG: Cliente Supabase criado com sucesso!")
     } catch (e) {
       console.error("Erro ao criar cliente Supabase. Verifique suas variáveis de ambiente:", e)
-      supabaseClientInstance = null // Se der erro, garante que a instância é nula
+      console.error("DEBUG: URL fornecida:", supabaseUrl)
+      console.error("DEBUG: Chave fornecida:", supabaseAnonKey ? "Presente" : "Ausente")
+      supabaseClientInstance = null
     }
   }
   return supabaseClientInstance

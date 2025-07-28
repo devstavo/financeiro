@@ -1,17 +1,13 @@
 "use client"
 
 import { DialogTrigger } from "@/components/ui/dialog"
-
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +16,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Trash2, Plus, LogOut, ChevronLeft, ChevronRight, Archive, Calendar, Database, AlertCircle } from "lucide-react"
+import {
+  Trash2,
+  Plus,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Archive,
+  Calendar,
+  Database,
+  AlertCircle,
+  Users,
+  Link,
+  CheckCircle,
+} from "lucide-react"
 import {
   getTransactionsByMonth,
   addTransaction,
@@ -33,8 +42,12 @@ import {
   type Transaction,
   type ClosedMonth,
 } from "@/lib/database"
+import { getPeople, getPendingDebtsByPerson, addDebtPayment, type Person, type Debt } from "@/lib/debts"
 import { isSupabaseConfigured } from "@/lib/supabase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import type React from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -53,6 +66,16 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showMigration, setShowMigration] = useState(false)
+
+  // Estados para vinculação com dívidas
+  const [people, setPeople] = useState<Person[]>([])
+  const [linkToDebt, setLinkToDebt] = useState(false)
+  const [selectedPersonId, setSelectedPersonId] = useState("")
+  const [selectedDebtId, setSelectedDebtId] = useState("")
+  const [personDebts, setPersonDebts] = useState<Debt[]>([])
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState("")
+  const [paymentSuccess, setPaymentSuccess] = useState(false)
+
   const router = useRouter()
 
   useEffect(() => {
@@ -68,7 +91,6 @@ export default function Dashboard() {
     // Verificar se há dados no localStorage para migrar
     const hasLocalData = localStorage.getItem("monthsHistory")
     if (hasLocalData && isSupabaseConfigured) {
-      // Só mostra migração se Supabase estiver configurado
       setShowMigration(true)
     }
 
@@ -94,6 +116,10 @@ export default function Dashboard() {
     const descriptionsData = await getDescriptionSuggestions(userId)
     setSuggestions(descriptionsData)
 
+    // Carregar pessoas para vinculação com dívidas
+    const peopleData = await getPeople(userId)
+    setPeople(peopleData)
+
     setLoading(false)
   }
 
@@ -105,18 +131,94 @@ export default function Dashboard() {
     }
   }
 
+  // Quando seleciona uma pessoa, carrega suas dívidas pendentes
+  const handlePersonSelect = async (personId: string) => {
+    console.log("🔍 Selecionando pessoa:", personId)
+    setSelectedPersonId(personId)
+    setSelectedDebtId("")
+    setDebtPaymentAmount("")
+
+    if (personId && user) {
+      console.log("📋 Buscando dívidas para pessoa:", personId, "tipo transação:", type)
+      const debts = await getPendingDebtsByPerson(user.id, personId)
+      console.log("💰 Dívidas encontradas:", debts)
+
+      // Filtrar dívidas compatíveis com o tipo de transação
+      const compatibleDebts = debts.filter((debt) => {
+        if (type === "entrada") {
+          return debt.type === "a_receber" // Entrada pode quitar dívida a receber
+        } else {
+          return debt.type === "a_pagar" // Despesa pode quitar dívida a pagar
+        }
+      })
+
+      console.log("✅ Dívidas compatíveis:", compatibleDebts)
+      setPersonDebts(compatibleDebts)
+    } else {
+      setPersonDebts([])
+    }
+  }
+
+  // Quando seleciona uma dívida, sugere o valor restante
+  const handleDebtSelect = (debtId: string) => {
+    console.log("💳 Selecionando dívida:", debtId)
+    setSelectedDebtId(debtId)
+    const selectedDebt = personDebts.find((debt) => debt.id === debtId)
+    if (selectedDebt) {
+      console.log("💰 Dívida selecionada:", selectedDebt)
+      setDebtPaymentAmount(selectedDebt.remaining_amount.toString())
+    }
+  }
+
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!description || !amount || !user) return
 
+    console.log("🚀 Iniciando adição de transação...")
+    console.log("📝 Dados da transação:", { description, amount, type, currentMonth })
+    console.log("🔗 Vinculação ativa:", linkToDebt)
+    console.log("👤 Pessoa selecionada:", selectedPersonId)
+    console.log("💳 Dívida selecionada:", selectedDebtId)
+    console.log("💰 Valor do pagamento:", debtPaymentAmount)
+
     const newTransaction = await addTransaction(user.id, description, Number.parseFloat(amount), type, currentMonth)
 
     if (newTransaction) {
+      console.log("✅ Transação criada:", newTransaction)
+
+      // Se está vinculando a uma dívida, registrar o pagamento
+      if (linkToDebt && selectedDebtId && debtPaymentAmount) {
+        console.log("🔄 Processando pagamento de dívida...")
+        const paymentAmount = Number.parseFloat(debtPaymentAmount)
+        const success = await addDebtPayment(
+          selectedDebtId,
+          newTransaction.id,
+          paymentAmount,
+          new Date().toISOString().split("T")[0],
+          `Pagamento via transação: ${description}`,
+        )
+
+        if (success) {
+          console.log("✅ Pagamento de dívida registrado com sucesso!")
+          setPaymentSuccess(true)
+          setTimeout(() => setPaymentSuccess(false), 3000) // Remove o alerta após 3 segundos
+        } else {
+          console.error("❌ Erro ao registrar pagamento de dívida")
+        }
+      }
+
       setTransactions([newTransaction, ...transactions])
       setDescription("")
       setAmount("")
       setShowSuggestions(false)
+
+      // Resetar campos de dívida
+      setLinkToDebt(false)
+      setSelectedPersonId("")
+      setSelectedDebtId("")
+      setPersonDebts([])
+      setDebtPaymentAmount("")
 
       // Atualizar sugestões
       const descriptionsData = await getDescriptionSuggestions(user.id)
@@ -183,6 +285,16 @@ export default function Dashboard() {
   const selectSuggestion = (suggestion: string) => {
     setDescription(suggestion)
     setShowSuggestions(false)
+  }
+
+  // Quando muda o tipo de transação, resetar seleções de dívida
+  const handleTypeChange = (newType: "entrada" | "despesa") => {
+    console.log("🔄 Mudando tipo de transação para:", newType)
+    setType(newType)
+    if (linkToDebt && selectedPersonId) {
+      // Recarregar dívidas compatíveis com o novo tipo
+      handlePersonSelect(selectedPersonId)
+    }
   }
 
   const totalEntradas = transactions.filter((t) => t.type === "entrada").reduce((sum, t) => sum + t.amount, 0)
@@ -266,11 +378,28 @@ export default function Dashboard() {
               {isSupabaseConfigured ? "Dados salvos na nuvem ☁️" : "Dados salvos localmente 💾"}
             </p>
           </div>
-          <Button onClick={handleLogout} variant="outline" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => router.push("/dividas")} variant="outline" size="sm">
+              <Users className="w-4 h-4 mr-2" />
+              Dívidas
+            </Button>
+            <Button onClick={handleLogout} variant="outline" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
+
+        {/* Alerta de sucesso do pagamento */}
+        {paymentSuccess && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-800">Pagamento registrado!</AlertTitle>
+            <AlertDescription className="text-green-700">
+              A dívida foi atualizada automaticamente com o pagamento realizado.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Aviso de Supabase não configurado */}
         {!isSupabaseConfigured && (
@@ -380,70 +509,158 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddTransaction} className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Input
-                    id="description"
-                    name="description"
-                    value={description}
-                    onChange={(e) => handleDescriptionChange(e.target.value)}
-                    placeholder="Ex: Salário, Aluguel, Compras..."
-                    required
-                  />
-                  {showSuggestions && filteredSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-                      {filteredSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
-                          onClick={() => selectSuggestion(suggestion)}
+              <form onSubmit={handleAddTransaction} className="space-y-4">
+                {/* Primeira linha - campos principais */}
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Input
+                      id="description"
+                      name="description"
+                      value={description}
+                      onChange={(e) => handleDescriptionChange(e.target.value)}
+                      placeholder="Ex: Salário, Aluguel, Compras..."
+                      required
+                    />
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                        {filteredSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            className="w-full px-3 py-2 text-left hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
+                            onClick={() => selectSuggestion(suggestion)}
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-full md:w-32">
+                    <Label htmlFor="amount">Valor</Label>
+                    <Input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0,00"
+                      required
+                    />
+                  </div>
+
+                  <div className="w-full md:w-32">
+                    <Label htmlFor="type">Tipo</Label>
+                    <Select value={type} onValueChange={handleTypeChange} name="type">
+                      <SelectTrigger id="type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="entrada">Entrada</SelectItem>
+                        <SelectItem value="despesa">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Segunda linha - vinculação com dívidas */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Checkbox
+                      id="linkToDebt"
+                      checked={linkToDebt}
+                      onCheckedChange={(checked) => {
+                        setLinkToDebt(checked as boolean)
+                        if (!checked) {
+                          setSelectedPersonId("")
+                          setSelectedDebtId("")
+                          setPersonDebts([])
+                          setDebtPaymentAmount("")
+                        }
+                      }}
+                    />
+                    <Label htmlFor="linkToDebt" className="flex items-center gap-2">
+                      <Link className="w-4 h-4" />
+                      Vincular a uma dívida
+                    </Label>
+                  </div>
+
+                  {linkToDebt && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <Label htmlFor="person">Pessoa</Label>
+                        <Select value={selectedPersonId} onValueChange={handlePersonSelect}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma pessoa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {people.map((person) => (
+                              <SelectItem key={person.id} value={person.id}>
+                                {person.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="debt">Dívida</Label>
+                        <Select
+                          value={selectedDebtId}
+                          onValueChange={handleDebtSelect}
+                          disabled={!selectedPersonId || personDebts.length === 0}
                         >
-                          {suggestion}
-                        </button>
-                      ))}
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                !selectedPersonId
+                                  ? "Selecione uma pessoa primeiro"
+                                  : personDebts.length === 0
+                                    ? "Nenhuma dívida compatível"
+                                    : "Selecione uma dívida"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {personDebts.map((debt) => (
+                              <SelectItem key={debt.id} value={debt.id}>
+                                {debt.description} - {formatCurrency(debt.remaining_amount)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="debtPayment">Valor do Pagamento</Label>
+                        <Input
+                          id="debtPayment"
+                          type="number"
+                          step="0.01"
+                          value={debtPaymentAmount}
+                          onChange={(e) => setDebtPaymentAmount(e.target.value)}
+                          placeholder="0,00"
+                          disabled={!selectedDebtId}
+                        />
+                      </div>
+
+                      {selectedDebtId && (
+                        <div className="md:col-span-3 text-sm text-gray-600 bg-blue-50 p-3 rounded">
+                          <strong>Dica:</strong> Esta transação será registrada normalmente e também será vinculada como
+                          pagamento da dívida selecionada. O valor restante da dívida será atualizado automaticamente.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <div className="w-full md:w-32">
-                  <Label htmlFor="amount">Valor</Label>
-                  <Input
-                    id="amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0,00"
-                    required
-                  />
-                </div>
-
-                <div className="w-full md:w-32">
-                  <Label htmlFor="type">Tipo</Label>
-                  <Select
-                    value={type}
-                    onValueChange={(value: "entrada" | "despesa") => setType(value)}
-                    name="type" // 'name' no componente Select (raiz)
-                  >
-                    <SelectTrigger id="type">
-                      {" "}
-                      {/* 'id' no SelectTrigger para o Label */}
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="entrada">Entrada</SelectItem>
-                      <SelectItem value="despesa">Despesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end">
+                <div className="flex justify-end">
                   <Button type="submit">
                     <Plus className="w-4 h-4 mr-2" />
-                    Adicionar
+                    Adicionar Transação
                   </Button>
                 </div>
               </form>
