@@ -61,7 +61,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Senha</Label>
               <Input
                 id="password"
-                name="password" // Garantido: atributo name adicionado
+                name="password" // Garantido: atributo name adicionad
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
