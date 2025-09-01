@@ -145,7 +145,98 @@ export async function importBankStatement(
   }
 }
 
-// Buscar regras de conciliação
+// NOVA FUNÇÃO - Deletar extrato bancário e todas suas transações
+export async function deleteBankStatement(userId: string, statementId: string): Promise<boolean> {
+  console.log("🗑️ Deletando extrato bancário:", statementId)
+
+  if (!isSupabaseConfigured) {
+    // Implementação localStorage
+    console.log("💾 Deletando no localStorage")
+
+    // Deletar extrato
+    const statements = JSON.parse(localStorage.getItem(`bank_statements_${userId}`) || "[]")
+    const updatedStatements = statements.filter((statement: BankStatement) => statement.id !== statementId)
+    localStorage.setItem(`bank_statements_${userId}`, JSON.stringify(updatedStatements))
+
+    // Deletar transações bancárias relacionadas
+    const bankTransactions = JSON.parse(localStorage.getItem(`bank_transactions_${userId}`) || "[]")
+    const updatedBankTransactions = bankTransactions.filter(
+      (transaction: BankTransaction) => transaction.statement_id !== statementId,
+    )
+    localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(updatedBankTransactions))
+
+    console.log("✅ Extrato e transações deletados do localStorage")
+    return true
+  }
+
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    console.error("❌ Cliente Supabase não disponível")
+    return false
+  }
+
+  try {
+    console.log("☁️ Deletando no Supabase")
+
+    // Deletar extrato (as transações bancárias são deletadas automaticamente por CASCADE)
+    const { error } = await supabase.from("bank_statements").delete().eq("id", statementId).eq("user_id", userId)
+
+    if (error) {
+      console.error("❌ Erro ao deletar extrato:", error)
+      return false
+    }
+
+    console.log("✅ Extrato e transações deletados do Supabase")
+    return true
+  } catch (error) {
+    console.error("❌ Erro na exclusão:", error)
+    return false
+  }
+}
+
+// NOVA FUNÇÃO - Limpar todas as conciliações (resetar sistema)
+export async function clearAllReconciliations(userId: string): Promise<boolean> {
+  console.log("🧹 Limpando todas as conciliações para usuário:", userId)
+
+  if (!isSupabaseConfigured) {
+    // Implementação localStorage
+    console.log("💾 Limpando localStorage")
+
+    // Limpar extratos
+    localStorage.removeItem(`bank_statements_${userId}`)
+    // Limpar transações bancárias
+    localStorage.removeItem(`bank_transactions_${userId}`)
+
+    console.log("✅ Todas as conciliações limpas do localStorage")
+    return true
+  }
+
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    console.error("❌ Cliente Supabase não disponível")
+    return false
+  }
+
+  try {
+    console.log("☁️ Limpando no Supabase")
+
+    // Deletar todos os extratos do usuário (as transações são deletadas por CASCADE)
+    const { error } = await supabase.from("bank_statements").delete().eq("user_id", userId)
+
+    if (error) {
+      console.error("❌ Erro ao limpar conciliações:", error)
+      return false
+    }
+
+    console.log("✅ Todas as conciliações limpas do Supabase")
+    return true
+  } catch (error) {
+    console.error("❌ Erro na limpeza:", error)
+    return false
+  }
+}
+
+// Buscar regras de conciliação - VERSÃO MELHORADA
 export async function getReconciliationRules(userId: string): Promise<ReconciliationRule[]> {
   console.log("📋 Buscando regras de conciliação para usuário:", userId)
 
@@ -154,7 +245,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
     const rules = localStorage.getItem(`reconciliation_rules_${userId}`)
 
     if (!rules) {
-      // Criar regras padrão no localStorage se não existirem
+      // Criar regras padrão MELHORADAS no localStorage se não existirem
       const defaultRules: ReconciliationRule[] = [
         {
           id: "1",
@@ -195,6 +286,42 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
         {
           id: "4",
           user_id: userId,
+          rule_name: "Transferência Geral",
+          bank_description_pattern: "TRANSFERENCIA",
+          transaction_description: "Transferência",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "5",
+          user_id: userId,
+          rule_name: "PIX Débito",
+          bank_description_pattern: "PIX DES",
+          transaction_description: "PIX Enviado",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "6",
+          user_id: userId,
+          rule_name: "PIX Crédito",
+          bank_description_pattern: "PIX REC",
+          transaction_description: "PIX Recebido",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "7",
+          user_id: userId,
           rule_name: "TED",
           bank_description_pattern: "TED",
           transaction_description: "Transferência TED",
@@ -205,7 +332,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "5",
+          id: "8",
           user_id: userId,
           rule_name: "Cartão",
           bank_description_pattern: "CARTAO",
@@ -217,7 +344,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "6",
+          id: "9",
           user_id: userId,
           rule_name: "Depósito",
           bank_description_pattern: "DEPOSITO",
@@ -229,7 +356,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "7",
+          id: "10",
           user_id: userId,
           rule_name: "Saque",
           bank_description_pattern: "SAQUE",
@@ -241,7 +368,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "8",
+          id: "11",
           user_id: userId,
           rule_name: "Débito Automático",
           bank_description_pattern: "DEB AUTOMATICO",
@@ -253,11 +380,11 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "9",
+          id: "12",
           user_id: userId,
-          rule_name: "Transferência Geral",
-          bank_description_pattern: "TRANSFERENCIA",
-          transaction_description: "Transferência",
+          rule_name: "Agora Pay",
+          bank_description_pattern: "AGORA",
+          transaction_description: "Transferência Agora",
           transaction_type: "despesa",
           auto_reconcile: true,
           active: true,
@@ -265,9 +392,9 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "10",
+          id: "13",
           user_id: userId,
-          rule_name: "Pagamento Geral",
+          rule_name: "Pagamento",
           bank_description_pattern: "PAGAMENTO",
           transaction_description: "Pagamento",
           transaction_type: "despesa",
@@ -277,9 +404,9 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "11",
+          id: "14",
           user_id: userId,
-          rule_name: "Recebimento Geral",
+          rule_name: "Recebimento",
           bank_description_pattern: "RECEBIMENTO",
           transaction_description: "Recebimento",
           transaction_type: "entrada",
@@ -288,10 +415,34 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           use_original_description: true,
           created_at: new Date().toISOString(),
         },
+        {
+          id: "15",
+          user_id: userId,
+          rule_name: "Compra Débito",
+          bank_description_pattern: "COMPRA DEBITO",
+          transaction_description: "Compra no Débito",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "16",
+          user_id: userId,
+          rule_name: "Tarifa",
+          bank_description_pattern: "TARIFA",
+          transaction_description: "Tarifa Bancária",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
       ]
 
       localStorage.setItem(`reconciliation_rules_${userId}`, JSON.stringify(defaultRules))
-      console.log("✅ Regras padrão criadas no localStorage:", defaultRules.length)
+      console.log("✅ Regras padrão MELHORADAS criadas no localStorage:", defaultRules.length)
       return defaultRules
     }
 

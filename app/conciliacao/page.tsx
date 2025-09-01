@@ -38,6 +38,7 @@ import {
   Trash2,
   Eye,
   Download,
+  AlertTriangle,
 } from "lucide-react"
 import { OFXParser } from "@/lib/ofx-parser"
 import {
@@ -46,6 +47,8 @@ import {
   getUnreconciledTransactions,
   getBankStatements,
   getReconciliationRules,
+  deleteBankStatement,
+  clearAllReconciliations,
   type BankStatement,
   type BankTransaction,
 } from "@/lib/bank-reconciliation"
@@ -81,6 +84,7 @@ export default function ConciliacaoPage() {
   // Estados para gerenciamento de extratos
   const [deletingStatement, setDeletingStatement] = useState<BankStatement | null>(null)
   const [viewingStatement, setViewingStatement] = useState<BankStatement | null>(null)
+  const [clearingAll, setClearingAll] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -290,23 +294,40 @@ export default function ConciliacaoPage() {
 
     console.log("🗑️ Deletando extrato:", statement.file_name)
 
-    // Aqui você implementaria a lógica de deletar do banco de dados
-    // Por enquanto, vamos simular removendo do estado local
-
     try {
-      // TODO: Implementar delete no banco de dados
-      // await deleteStatement(statement.id)
+      const success = await deleteBankStatement(user.id, statement.id)
 
-      // Remover do estado local por enquanto
-      setBankStatements((prev) => prev.filter((s) => s.id !== statement.id))
-
-      // Recarregar dados para garantir consistência
-      await loadData(user.id)
-
-      setDeletingStatement(null)
-      console.log("✅ Extrato deletado com sucesso")
+      if (success) {
+        console.log("✅ Extrato deletado com sucesso")
+        await loadData(user.id) // Recarregar dados
+        setDeletingStatement(null)
+      } else {
+        console.error("❌ Erro ao deletar extrato")
+      }
     } catch (error) {
       console.error("❌ Erro ao deletar extrato:", error)
+    }
+  }
+
+  const handleClearAll = async () => {
+    if (!user) return
+
+    console.log("🧹 Limpando todas as conciliações")
+
+    try {
+      const success = await clearAllReconciliations(user.id)
+
+      if (success) {
+        console.log("✅ Todas as conciliações limpas com sucesso")
+        await loadData(user.id) // Recarregar dados
+        setClearingAll(false)
+        setReconciliationResult(null)
+        setUploadResult(null)
+      } else {
+        console.error("❌ Erro ao limpar conciliações")
+      }
+    } catch (error) {
+      console.error("❌ Erro ao limpar conciliações:", error)
     }
   }
 
@@ -395,6 +416,19 @@ export default function ConciliacaoPage() {
               <h1 className="text-3xl font-bold text-gray-900">Conciliação Bancária</h1>
               <p className="text-sm text-gray-600">Importe extratos OFX do Bradesco e concilie automaticamente</p>
             </div>
+          </div>
+          <div className="flex gap-2">
+            {(bankStatements.length > 0 || unreconciledTransactions.length > 0) && (
+              <Button
+                onClick={() => setClearingAll(true)}
+                variant="destructive"
+                size="sm"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Limpar Tudo
+              </Button>
+            )}
           </div>
         </div>
 
@@ -900,6 +934,35 @@ export default function ConciliacaoPage() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 Sim, Deletar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Confirmação - Limpar Tudo */}
+        <AlertDialog open={clearingAll} onOpenChange={setClearingAll}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Limpar Todas as Conciliações</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja limpar <strong>TODAS</strong> as conciliações?
+                <br />
+                <br />
+                <span className="text-red-600 font-medium">
+                  ⚠️ ATENÇÃO: Esta ação irá deletar:
+                  <br />• Todos os extratos importados ({bankStatements.length})
+                  <br />• Todas as transações bancárias ({unreconciledTransactions.length} pendentes)
+                  <br />• Todo o histórico de conciliações
+                </span>
+                <br />
+                <br />
+                Esta ação não pode ser desfeita. Você precisará importar os extratos novamente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleClearAll} className="bg-red-600 hover:bg-red-700">
+                Sim, Limpar Tudo
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
