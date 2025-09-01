@@ -245,8 +245,9 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
     const rules = localStorage.getItem(`reconciliation_rules_${userId}`)
 
     if (!rules) {
-      // Criar regras padrão MELHORADAS no localStorage se não existirem
+      // Criar regras padrão OTIMIZADAS no localStorage se não existirem
       const defaultRules: ReconciliationRule[] = [
+        // REGRAS PARA RECEBIMENTOS (ENTRADAS)
         {
           id: "1",
           user_id: userId,
@@ -274,42 +275,6 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
         {
           id: "3",
           user_id: userId,
-          rule_name: "PIX Enviado",
-          bank_description_pattern: "PIX ENVIADO",
-          transaction_description: "PIX Enviado",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "4",
-          user_id: userId,
-          rule_name: "Transferência Geral",
-          bank_description_pattern: "TRANSFERENCIA",
-          transaction_description: "Transferência",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "5",
-          user_id: userId,
-          rule_name: "PIX Débito",
-          bank_description_pattern: "PIX DES",
-          transaction_description: "PIX Enviado",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "6",
-          user_id: userId,
           rule_name: "PIX Crédito",
           bank_description_pattern: "PIX REC",
           transaction_description: "PIX Recebido",
@@ -320,31 +285,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "7",
-          user_id: userId,
-          rule_name: "TED",
-          bank_description_pattern: "TED",
-          transaction_description: "Transferência TED",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "8",
-          user_id: userId,
-          rule_name: "Cartão",
-          bank_description_pattern: "CARTAO",
-          transaction_description: "Cartão de Crédito",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "9",
+          id: "4",
           user_id: userId,
           rule_name: "Depósito",
           bank_description_pattern: "DEPOSITO",
@@ -356,55 +297,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "10",
-          user_id: userId,
-          rule_name: "Saque",
-          bank_description_pattern: "SAQUE",
-          transaction_description: "Saque",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "11",
-          user_id: userId,
-          rule_name: "Débito Automático",
-          bank_description_pattern: "DEB AUTOMATICO",
-          transaction_description: "Débito Automático",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "12",
-          user_id: userId,
-          rule_name: "Agora Pay",
-          bank_description_pattern: "AGORA",
-          transaction_description: "Transferência Agora",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "13",
-          user_id: userId,
-          rule_name: "Pagamento",
-          bank_description_pattern: "PAGAMENTO",
-          transaction_description: "Pagamento",
-          transaction_type: "despesa",
-          auto_reconcile: true,
-          active: true,
-          use_original_description: true,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "14",
+          id: "5",
           user_id: userId,
           rule_name: "Recebimento",
           bank_description_pattern: "RECEBIMENTO",
@@ -416,7 +309,152 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
+          id: "6",
+          user_id: userId,
+          rule_name: "Transferência Recebida",
+          bank_description_pattern: "TRANSFERENCIA RECEBIDA",
+          transaction_description: "Transferência Recebida",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "7",
+          user_id: userId,
+          rule_name: "TED Recebido",
+          bank_description_pattern: "TED RECEBIDO",
+          transaction_description: "TED Recebido",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "8",
+          user_id: userId,
+          rule_name: "Crédito Geral",
+          bank_description_pattern: "CREDITO",
+          transaction_description: "Crédito",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        // REGRAS PARA DESPESAS (SAÍDAS)
+        {
+          id: "9",
+          user_id: userId,
+          rule_name: "PIX Enviado",
+          bank_description_pattern: "PIX ENVIADO",
+          transaction_description: "PIX Enviado",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "10",
+          user_id: userId,
+          rule_name: "PIX Débito",
+          bank_description_pattern: "PIX DES",
+          transaction_description: "PIX Enviado",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "11",
+          user_id: userId,
+          rule_name: "Transferência Geral",
+          bank_description_pattern: "TRANSFERENCIA",
+          transaction_description: "Transferência",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "12",
+          user_id: userId,
+          rule_name: "TED Enviado",
+          bank_description_pattern: "TED",
+          transaction_description: "Transferência TED",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "13",
+          user_id: userId,
+          rule_name: "Cartão de Crédito",
+          bank_description_pattern: "CARTAO",
+          transaction_description: "Cartão de Crédito",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "14",
+          user_id: userId,
+          rule_name: "Saque",
+          bank_description_pattern: "SAQUE",
+          transaction_description: "Saque",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
           id: "15",
+          user_id: userId,
+          rule_name: "Débito Automático",
+          bank_description_pattern: "DEB AUTOMATICO",
+          transaction_description: "Débito Automático",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "16",
+          user_id: userId,
+          rule_name: "Agora Pay",
+          bank_description_pattern: "AGORA",
+          transaction_description: "Transferência Agora",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "17",
+          user_id: userId,
+          rule_name: "Pagamento",
+          bank_description_pattern: "PAGAMENTO",
+          transaction_description: "Pagamento",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "18",
           user_id: userId,
           rule_name: "Compra Débito",
           bank_description_pattern: "COMPRA DEBITO",
@@ -428,7 +466,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "16",
+          id: "19",
           user_id: userId,
           rule_name: "Tarifa",
           bank_description_pattern: "TARIFA",
@@ -439,10 +477,22 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           use_original_description: true,
           created_at: new Date().toISOString(),
         },
+        {
+          id: "20",
+          user_id: userId,
+          rule_name: "Débito Geral",
+          bank_description_pattern: "DEBITO",
+          transaction_description: "Débito",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
       ]
 
       localStorage.setItem(`reconciliation_rules_${userId}`, JSON.stringify(defaultRules))
-      console.log("✅ Regras padrão MELHORADAS criadas no localStorage:", defaultRules.length)
+      console.log("✅ Regras padrão OTIMIZADAS criadas no localStorage:", defaultRules.length)
       return defaultRules
     }
 
@@ -481,6 +531,22 @@ function formatOriginalDescription(originalDescription: string): string {
     .toLowerCase() // Converter para minúscula para ficar mais legível
     .replace(/\b\w/g, (l) => l.toUpperCase()) // Primeira letra de cada palavra maiúscula
     .substring(0, 200) // Limitar tamanho
+}
+
+// NOVA FUNÇÃO - Conciliar transações selecionadas
+export async function reconcileSelectedTransactions(
+  userId: string,
+  selectedTransactionIds: string[],
+  allTransactions: BankTransaction[],
+): Promise<{ reconciled: number; created: number; details: any[] }> {
+  console.log("🎯 === INICIANDO CONCILIAÇÃO SELECIONADA ===")
+  console.log("📊 Transações selecionadas:", selectedTransactionIds.length)
+
+  const selectedTransactions = allTransactions.filter((txn) => selectedTransactionIds.includes(txn.id))
+  console.log("✅ Transações filtradas:", selectedTransactions.length)
+
+  // Usar a mesma lógica da conciliação automática, mas apenas para as selecionadas
+  return await autoReconcileTransactions(userId, selectedTransactions)
 }
 
 // Conciliar transações automaticamente - VERSÃO MELHORADA COM MAIS DEBUG
@@ -542,8 +608,14 @@ export async function autoReconcileTransactions(
     const bankDescriptionUpper = bankTxn.description.toUpperCase()
     console.log("🔍 Descrição em maiúscula para matching:", `"${bankDescriptionUpper}"`)
 
-    for (let j = 0; j < rules.length; j++) {
-      const rule = rules[j]
+    // MELHORAR O MATCHING - Ordenar regras por especificidade
+    const sortedRules = [...rules].sort((a, b) => {
+      // Regras mais específicas primeiro (padrões mais longos)
+      return b.bank_description_pattern.length - a.bank_description_pattern.length
+    })
+
+    for (let j = 0; j < sortedRules.length; j++) {
+      const rule = sortedRules[j]
       console.log(`\n  🔍 Testando regra ${j + 1}: "${rule.rule_name}"`)
 
       if (!rule.active) {

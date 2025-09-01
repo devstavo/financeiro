@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,11 +40,13 @@ import {
   Eye,
   Download,
   AlertTriangle,
+  Target,
 } from "lucide-react"
 import { OFXParser } from "@/lib/ofx-parser"
 import {
   importBankStatement,
   autoReconcileTransactions,
+  reconcileSelectedTransactions,
   getUnreconciledTransactions,
   getBankStatements,
   getReconciliationRules,
@@ -86,6 +89,10 @@ export default function ConciliacaoPage() {
   const [viewingStatement, setViewingStatement] = useState<BankStatement | null>(null)
   const [clearingAll, setClearingAll] = useState(false)
 
+  // NOVOS ESTADOS PARA SELEÇÃO EM MASSA
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
+  const [selectAll, setSelectAll] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -112,6 +119,10 @@ export default function ConciliacaoPage() {
       setBankStatements(statements)
       setUnreconciledTransactions(unreconciled)
 
+      // Resetar seleções quando os dados mudam
+      setSelectedTransactions(new Set())
+      setSelectAll(false)
+
       console.log("📊 Dados carregados:")
       console.log("  - Extratos:", statements.length)
       console.log("  - Transações não conciliadas:", unreconciled.length)
@@ -119,6 +130,67 @@ export default function ConciliacaoPage() {
       console.error("❌ Erro ao carregar dados:", error)
     }
     setLoading(false)
+  }
+
+  // NOVA FUNÇÃO - Gerenciar seleção individual
+  const handleTransactionSelect = (transactionId: string, checked: boolean) => {
+    const newSelected = new Set(selectedTransactions)
+    if (checked) {
+      newSelected.add(transactionId)
+    } else {
+      newSelected.delete(transactionId)
+      setSelectAll(false)
+    }
+    setSelectedTransactions(newSelected)
+    console.log("📋 Transação selecionada:", transactionId, "Total selecionadas:", newSelected.size)
+  }
+
+  // NOVA FUNÇÃO - Selecionar/Deselecionar todas
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(unreconciledTransactions.map((txn) => txn.id))
+      setSelectedTransactions(allIds)
+      setSelectAll(true)
+      console.log("✅ Todas as transações selecionadas:", allIds.size)
+    } else {
+      setSelectedTransactions(new Set())
+      setSelectAll(false)
+      console.log("❌ Todas as transações desmarcadas")
+    }
+  }
+
+  // NOVA FUNÇÃO - Conciliar apenas selecionadas
+  const handleReconcileSelected = async () => {
+    if (!user || selectedTransactions.size === 0) return
+
+    console.log("🎯 === INICIANDO CONCILIAÇÃO SELECIONADA ===")
+    console.log("📊 Transações selecionadas:", selectedTransactions.size)
+
+    setReconciling(true)
+    setReconciliationResult(null)
+
+    try {
+      const result = await reconcileSelectedTransactions(
+        user.id,
+        Array.from(selectedTransactions),
+        unreconciledTransactions,
+      )
+      console.log("🎉 Resultado da conciliação selecionada:", result)
+
+      setReconciliationResult(result)
+
+      // Recarregar dados
+      await loadData(user.id)
+    } catch (error) {
+      console.error("❌ Erro na conciliação selecionada:", error)
+      setReconciliationResult({
+        reconciled: 0,
+        created: 0,
+        details: [{ error: String(error) }],
+      })
+    } finally {
+      setReconciling(false)
+    }
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,7 +324,7 @@ export default function ConciliacaoPage() {
       unreconciledTransactions: unreconciledTxns,
       rulesCount: rules.length,
       unreconciledCount: unreconciledTxns.length,
-      sampleMatching: unreconciledTxns.slice(0, 5).map((txn) => {
+      sampleMatching: unreconciledTxns.slice(0, 10).map((txn) => {
         const matchingRules = rules.filter((rule) => {
           const pattern = rule.bank_description_pattern.replace(/%/g, "").toUpperCase()
           return txn.description.toUpperCase().includes(pattern)
@@ -391,6 +463,15 @@ export default function ConciliacaoPage() {
     .filter((txn) => txn.transaction_type === "debit")
     .reduce((sum, txn) => sum + txn.amount, 0)
 
+  // Estatísticas das selecionadas
+  const selectedTransactionsList = unreconciledTransactions.filter((txn) => selectedTransactions.has(txn.id))
+  const selectedCredit = selectedTransactionsList
+    .filter((txn) => txn.transaction_type === "credit")
+    .reduce((sum, txn) => sum + txn.amount, 0)
+  const selectedDebit = selectedTransactionsList
+    .filter((txn) => txn.transaction_type === "debit")
+    .reduce((sum, txn) => sum + txn.amount, 0)
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -487,6 +568,34 @@ export default function ConciliacaoPage() {
           </Card>
         </div>
 
+        {/* Card de Seleção em Massa */}
+        {selectedTransactions.size > 0 && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Transações Selecionadas ({selectedTransactions.size})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">{selectedTransactions.size}</div>
+                  <p className="text-xs text-blue-600">Selecionadas</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">{formatCurrency(selectedCredit)}</div>
+                  <p className="text-xs text-green-600">Créditos</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-red-600">{formatCurrency(selectedDebit)}</div>
+                  <p className="text-xs text-red-600">Débitos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Alertas de Resultado */}
         {uploadResult && (
           <Alert variant={uploadResult.success ? "default" : "destructive"}>
@@ -499,7 +608,7 @@ export default function ConciliacaoPage() {
         {reconciliationResult && (
           <Alert variant="default" className="bg-blue-50 border-blue-200">
             <Zap className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800">Conciliação Automática Concluída!</AlertTitle>
+            <AlertTitle className="text-blue-800">Conciliação Concluída!</AlertTitle>
             <AlertDescription className="text-blue-700">
               <div className="space-y-2">
                 <div>
@@ -601,7 +710,7 @@ export default function ConciliacaoPage() {
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 5 transações):</h4>
+                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 10 transações):</h4>
                   <div className="bg-gray-50 p-3 rounded text-sm max-h-80 overflow-y-auto">
                     {debugInfo.sampleMatching.map((sample: any, index: number) => (
                       <div key={index} className="mb-3 p-3 border rounded bg-white">
@@ -754,6 +863,26 @@ export default function ConciliacaoPage() {
                   <Bug className="w-4 h-4 mr-2" />
                   Debug Detalhado
                 </Button>
+                {selectedTransactions.size > 0 && (
+                  <Button
+                    onClick={handleReconcileSelected}
+                    disabled={reconciling}
+                    variant="secondary"
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    {reconciling ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Conciliando...
+                      </>
+                    ) : (
+                      <>
+                        <Target className="w-4 h-4 mr-2" />
+                        Conciliar Selecionadas ({selectedTransactions.size})
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   onClick={handleAutoReconcile}
                   disabled={unreconciledTransactions.length === 0 || reconciling}
@@ -767,7 +896,7 @@ export default function ConciliacaoPage() {
                   ) : (
                     <>
                       <Zap className="w-4 h-4 mr-2" />
-                      Conciliar Automaticamente ({unreconciledTransactions.length})
+                      Conciliar Todas ({unreconciledTransactions.length})
                     </>
                   )}
                 </Button>
@@ -779,6 +908,13 @@ export default function ConciliacaoPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectAll}
+                          onCheckedChange={handleSelectAll}
+                          disabled={unreconciledTransactions.length === 0}
+                        />
+                      </TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Descrição Original do OFX</TableHead>
                       <TableHead>Tipo</TableHead>
@@ -790,7 +926,7 @@ export default function ConciliacaoPage() {
                   <TableBody>
                     {unreconciledTransactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
                           <div>
                             <p className="font-medium">Nenhuma transação pendente!</p>
@@ -804,7 +940,16 @@ export default function ConciliacaoPage() {
                       </TableRow>
                     ) : (
                       unreconciledTransactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
+                        <TableRow
+                          key={transaction.id}
+                          className={selectedTransactions.has(transaction.id) ? "bg-blue-50" : ""}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedTransactions.has(transaction.id)}
+                              onCheckedChange={(checked) => handleTransactionSelect(transaction.id, checked as boolean)}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">{formatDate(transaction.transaction_date)}</TableCell>
                           <TableCell className="max-w-xs">
                             <div className="font-mono text-sm bg-gray-50 p-2 rounded" title={transaction.description}>
