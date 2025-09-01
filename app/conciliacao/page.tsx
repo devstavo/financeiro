@@ -41,6 +41,7 @@ import {
   Download,
   AlertTriangle,
   Target,
+  Search,
 } from "lucide-react"
 import { OFXParser } from "@/lib/ofx-parser"
 import {
@@ -93,6 +94,9 @@ export default function ConciliacaoPage() {
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set())
   const [selectAll, setSelectAll] = useState(false)
 
+  // NOVO ESTADO PARA FILTROS
+  const [filterType, setFilterType] = useState<"all" | "credit" | "debit">("all")
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -126,6 +130,8 @@ export default function ConciliacaoPage() {
       console.log("📊 Dados carregados:")
       console.log("  - Extratos:", statements.length)
       console.log("  - Transações não conciliadas:", unreconciled.length)
+      console.log("  - Créditos não conciliados:", unreconciled.filter((t) => t.transaction_type === "credit").length)
+      console.log("  - Débitos não conciliados:", unreconciled.filter((t) => t.transaction_type === "debit").length)
     } catch (error) {
       console.error("❌ Erro ao carregar dados:", error)
     }
@@ -145,17 +151,30 @@ export default function ConciliacaoPage() {
     console.log("📋 Transação selecionada:", transactionId, "Total selecionadas:", newSelected.size)
   }
 
-  // NOVA FUNÇÃO - Selecionar/Deselecionar todas
+  // NOVA FUNÇÃO - Selecionar/Deselecionar todas (com filtro)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allIds = new Set(unreconciledTransactions.map((txn) => txn.id))
+      const filteredTransactions = getFilteredTransactions()
+      const allIds = new Set(filteredTransactions.map((txn) => txn.id))
       setSelectedTransactions(allIds)
       setSelectAll(true)
-      console.log("✅ Todas as transações selecionadas:", allIds.size)
+      console.log("✅ Todas as transações filtradas selecionadas:", allIds.size)
     } else {
       setSelectedTransactions(new Set())
       setSelectAll(false)
       console.log("❌ Todas as transações desmarcadas")
+    }
+  }
+
+  // NOVA FUNÇÃO - Filtrar transações por tipo
+  const getFilteredTransactions = () => {
+    switch (filterType) {
+      case "credit":
+        return unreconciledTransactions.filter((txn) => txn.transaction_type === "credit")
+      case "debit":
+        return unreconciledTransactions.filter((txn) => txn.transaction_type === "debit")
+      default:
+        return unreconciledTransactions
     }
   }
 
@@ -319,14 +338,36 @@ export default function ConciliacaoPage() {
     const rules = await getReconciliationRules(user.id)
     const unreconciledTxns = await getUnreconciledTransactions(user.id)
 
+    // Separar por tipo para debug
+    const creditTransactions = unreconciledTxns.filter((t) => t.transaction_type === "credit")
+    const debitTransactions = unreconciledTxns.filter((t) => t.transaction_type === "debit")
+    const entradaRules = rules.filter((r) => r.transaction_type === "entrada")
+    const despesaRules = rules.filter((r) => r.transaction_type === "despesa")
+
+    console.log("🔍 DEBUG DETALHADO:")
+    console.log("  - Total transações:", unreconciledTxns.length)
+    console.log("  - Transações CREDIT:", creditTransactions.length)
+    console.log("  - Transações DEBIT:", debitTransactions.length)
+    console.log("  - Regras ENTRADA:", entradaRules.length)
+    console.log("  - Regras DESPESA:", despesaRules.length)
+
     const debugData = {
       rules: rules,
       unreconciledTransactions: unreconciledTxns,
+      creditTransactions: creditTransactions,
+      debitTransactions: debitTransactions,
+      entradaRules: entradaRules,
+      despesaRules: despesaRules,
       rulesCount: rules.length,
       unreconciledCount: unreconciledTxns.length,
-      sampleMatching: unreconciledTxns.slice(0, 10).map((txn) => {
-        const matchingRules = rules.filter((rule) => {
-          const pattern = rule.bank_description_pattern.replace(/%/g, "").toUpperCase()
+      creditCount: creditTransactions.length,
+      debitCount: debitTransactions.length,
+      sampleMatching: unreconciledTxns.slice(0, 15).map((txn) => {
+        const relevantRules = txn.transaction_type === "credit" ? entradaRules : despesaRules
+
+        const matchingRules = relevantRules.filter((rule) => {
+          const pattern = rule.bank_description_pattern.replace(/%/g, "").toUpperCase().trim()
+          if (pattern === "") return true // Regra catch-all
           return txn.description.toUpperCase().includes(pattern)
         })
 
@@ -347,18 +388,26 @@ export default function ConciliacaoPage() {
         return {
           originalDescription: txn.description,
           type: txn.transaction_type,
+          expectedRuleType: txn.transaction_type === "credit" ? "entrada" : "despesa",
+          relevantRulesCount: relevantRules.length,
           matchingRules: matchingRules.map((r) => r.rule_name),
           applicableRule: applicableRule?.rule_name || "Nenhuma",
           finalDescription: finalDescription,
           ruleActive: applicableRule?.active || false,
           ruleAutoReconcile: applicableRule?.auto_reconcile || false,
+          debugInfo: {
+            bankType: txn.transaction_type,
+            expectedSystemType: txn.transaction_type === "credit" ? "entrada" : "despesa",
+            ruleType: applicableRule?.transaction_type || "N/A",
+            pattern: applicableRule?.bank_description_pattern || "N/A",
+          },
         }
       }),
     }
 
     setDebugInfo(debugData)
     setDebugMode(true)
-    console.log("🔧 Debug info:", debugData)
+    console.log("🔧 Debug info completo:", debugData)
   }
 
   const handleDeleteStatement = async (statement: BankStatement) => {
@@ -455,6 +504,7 @@ export default function ConciliacaoPage() {
   }
 
   // Estatísticas
+  const filteredTransactions = getFilteredTransactions()
   const totalUnreconciledCredit = unreconciledTransactions
     .filter((txn) => txn.transaction_type === "credit")
     .reduce((sum, txn) => sum + txn.amount, 0)
@@ -537,7 +587,10 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">{unreconciledTransactions.length}</div>
-              <p className="text-xs text-gray-500 mt-1">Transações pendentes</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {unreconciledTransactions.filter((t) => t.transaction_type === "credit").length} créditos,{" "}
+                {unreconciledTransactions.filter((t) => t.transaction_type === "debit").length} débitos
+              </p>
             </CardContent>
           </Card>
 
@@ -550,7 +603,9 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{formatCurrency(totalUnreconciledCredit)}</div>
-              <p className="text-xs text-gray-500 mt-1">Entradas não conciliadas</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {unreconciledTransactions.filter((t) => t.transaction_type === "credit").length} transações
+              </p>
             </CardContent>
           </Card>
 
@@ -563,7 +618,9 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{formatCurrency(totalUnreconciledDebit)}</div>
-              <p className="text-xs text-gray-500 mt-1">Despesas não conciliadas</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {unreconciledTransactions.filter((t) => t.transaction_type === "debit").length} transações
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -657,7 +714,7 @@ export default function ConciliacaoPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                🔧 Informações de Debug Detalhadas
+                🔧 Debug Detalhado - Análise de Créditos vs Débitos
                 <Button variant="outline" size="sm" onClick={() => setDebugMode(false)}>
                   Fechar
                 </Button>
@@ -665,63 +722,103 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-blue-50 p-3 rounded">
                     <div className="font-medium text-blue-800">Regras Carregadas</div>
                     <div className="text-2xl font-bold text-blue-600">{debugInfo.rulesCount}</div>
+                    <div className="text-xs text-blue-600">
+                      {debugInfo.entradaRules.length} entrada, {debugInfo.despesaRules.length} despesa
+                    </div>
                   </div>
                   <div className="bg-orange-50 p-3 rounded">
                     <div className="font-medium text-orange-800">Transações Pendentes</div>
                     <div className="text-2xl font-bold text-orange-600">{debugInfo.unreconciledCount}</div>
+                    <div className="text-xs text-orange-600">Total não conciliadas</div>
                   </div>
                   <div className="bg-green-50 p-3 rounded">
-                    <div className="font-medium text-green-800">Taxa de Match</div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {debugInfo.sampleMatching.filter((s: any) => s.applicableRule !== "Nenhuma").length}/
-                      {debugInfo.sampleMatching.length}
+                    <div className="font-medium text-green-800">Créditos Pendentes</div>
+                    <div className="text-2xl font-bold text-green-600">{debugInfo.creditCount}</div>
+                    <div className="text-xs text-green-600">Precisam regras "entrada"</div>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded">
+                    <div className="font-medium text-red-800">Débitos Pendentes</div>
+                    <div className="text-2xl font-bold text-red-600">{debugInfo.debitCount}</div>
+                    <div className="text-xs text-red-600">Precisam regras "despesa"</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium mb-2 text-green-800">
+                      Regras de ENTRADA ({debugInfo.entradaRules.length}):
+                    </h4>
+                    <div className="bg-green-50 p-3 rounded text-sm max-h-40 overflow-y-auto">
+                      {debugInfo.entradaRules.map((rule: any, index: number) => (
+                        <div key={index} className="mb-1 text-xs">
+                          <strong>{rule.rule_name}</strong>: "{rule.bank_description_pattern}"
+                          {rule.bank_description_pattern === "" && <span className="text-green-600"> (CATCH-ALL)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2 text-red-800">
+                      Regras de DESPESA ({debugInfo.despesaRules.length}):
+                    </h4>
+                    <div className="bg-red-50 p-3 rounded text-sm max-h-40 overflow-y-auto">
+                      {debugInfo.despesaRules.map((rule: any, index: number) => (
+                        <div key={index} className="mb-1 text-xs">
+                          <strong>{rule.rule_name}</strong>: "{rule.bank_description_pattern}"
+                          {rule.bank_description_pattern === "" && <span className="text-red-600"> (CATCH-ALL)</span>}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Regras Ativas ({debugInfo.rulesCount}):</h4>
-                  <div className="bg-gray-50 p-3 rounded text-sm max-h-60 overflow-y-auto">
-                    {debugInfo.rules.map((rule: any, index: number) => (
-                      <div key={index} className="mb-2 p-2 border rounded bg-white">
-                        <div className="flex items-center justify-between">
-                          <strong>{rule.rule_name}</strong>
-                          <div className="flex gap-2">
-                            <Badge variant={rule.active ? "default" : "secondary"}>
-                              {rule.active ? "Ativo" : "Inativo"}
-                            </Badge>
-                            <Badge variant={rule.auto_reconcile ? "default" : "secondary"}>
-                              {rule.auto_reconcile ? "Auto" : "Manual"}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-1">
-                          <div>Padrão: "{rule.bank_description_pattern}"</div>
-                          <div>Tipo: {rule.transaction_type}</div>
-                          <div>Usar descrição original: {rule.use_original_description ? "✅ Sim" : "❌ Não"}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 10 transações):</h4>
-                  <div className="bg-gray-50 p-3 rounded text-sm max-h-80 overflow-y-auto">
+                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 15 transações):</h4>
+                  <div className="bg-gray-50 p-3 rounded text-sm max-h-96 overflow-y-auto">
                     {debugInfo.sampleMatching.map((sample: any, index: number) => (
-                      <div key={index} className="mb-3 p-3 border rounded bg-white">
+                      <div
+                        key={index}
+                        className={`mb-3 p-3 border rounded ${
+                          sample.type === "credit" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                        }`}
+                      >
                         <div className="mb-2">
                           <strong>Descrição Original:</strong>
-                          <span className="font-mono bg-blue-50 px-2 py-1 rounded ml-2 text-xs">
+                          <span className="font-mono bg-white px-2 py-1 rounded ml-2 text-xs">
                             {sample.originalDescription}
                           </span>
                         </div>
-                        <div className="mb-2 text-xs">
-                          <strong>Tipo Bancário:</strong> {sample.type}
+                        <div className="grid grid-cols-2 gap-4 text-xs mb-2">
+                          <div>
+                            <strong>Tipo Bancário:</strong>
+                            <span
+                              className={`ml-1 font-medium ${
+                                sample.type === "credit" ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {sample.type}
+                            </span>
+                          </div>
+                          <div>
+                            <strong>Tipo Esperado:</strong>
+                            <span
+                              className={`ml-1 font-medium ${
+                                sample.expectedRuleType === "entrada" ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {sample.expectedRuleType}
+                            </span>
+                          </div>
+                          <div>
+                            <strong>Regras Relevantes:</strong> {sample.relevantRulesCount}
+                          </div>
+                          <div>
+                            <strong>Regras que fazem Match:</strong> {sample.matchingRules.length}
+                          </div>
                         </div>
                         <div className="mb-2 text-xs">
                           <strong>Regras que fazem match:</strong>{" "}
@@ -731,21 +828,25 @@ export default function ConciliacaoPage() {
                           <strong>Regra aplicável:</strong>
                           <span
                             className={
-                              sample.applicableRule !== "Nenhuma" ? "text-green-600 font-medium" : "text-red-600"
+                              sample.applicableRule !== "Nenhuma"
+                                ? "text-green-600 font-medium ml-1"
+                                : "text-red-600 ml-1"
                             }
                           >
                             {sample.applicableRule}
                           </span>
                         </div>
                         {sample.applicableRule !== "Nenhuma" && (
-                          <div className="mb-2 text-xs">
+                          <div className="mb-2 text-xs bg-white p-2 rounded">
                             <div>✅ Regra ativa: {sample.ruleActive ? "Sim" : "Não"}</div>
                             <div>✅ Auto-conciliação: {sample.ruleAutoReconcile ? "Sim" : "Não"}</div>
+                            <div>🔍 Padrão: "{sample.debugInfo.pattern}"</div>
+                            <div>🎯 Tipo da regra: {sample.debugInfo.ruleType}</div>
                           </div>
                         )}
                         <div
                           className={`p-2 rounded text-xs ${
-                            sample.applicableRule !== "Nenhuma" ? "bg-green-50" : "bg-red-50"
+                            sample.applicableRule !== "Nenhuma" ? "bg-green-100" : "bg-red-100"
                           }`}
                         >
                           <strong>Resultado:</strong>
@@ -903,6 +1004,37 @@ export default function ConciliacaoPage() {
               </div>
             </div>
 
+            {/* Filtros */}
+            <div className="flex gap-2 items-center">
+              <Search className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Filtrar por tipo:</span>
+              <div className="flex gap-1">
+                <Button
+                  variant={filterType === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("all")}
+                >
+                  Todas ({unreconciledTransactions.length})
+                </Button>
+                <Button
+                  variant={filterType === "credit" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("credit")}
+                  className={filterType === "credit" ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  Créditos ({unreconciledTransactions.filter((t) => t.transaction_type === "credit").length})
+                </Button>
+                <Button
+                  variant={filterType === "debit" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("debit")}
+                  className={filterType === "debit" ? "bg-red-600 hover:bg-red-700" : ""}
+                >
+                  Débitos ({unreconciledTransactions.filter((t) => t.transaction_type === "debit").length})
+                </Button>
+              </div>
+            </div>
+
             <Card>
               <CardContent className="p-0">
                 <Table>
@@ -912,7 +1044,7 @@ export default function ConciliacaoPage() {
                         <Checkbox
                           checked={selectAll}
                           onCheckedChange={handleSelectAll}
-                          disabled={unreconciledTransactions.length === 0}
+                          disabled={filteredTransactions.length === 0}
                         />
                       </TableHead>
                       <TableHead>Data</TableHead>
@@ -924,22 +1056,28 @@ export default function ConciliacaoPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {unreconciledTransactions.length === 0 ? (
+                    {filteredTransactions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
                           <div>
-                            <p className="font-medium">Nenhuma transação pendente!</p>
+                            <p className="font-medium">
+                              {unreconciledTransactions.length === 0
+                                ? "Nenhuma transação pendente!"
+                                : `Nenhuma transação ${filterType === "credit" ? "de crédito" : filterType === "debit" ? "de débito" : ""} pendente!`}
+                            </p>
                             <p className="text-sm mt-1">
                               {bankStatements.length === 0
                                 ? "Importe um extrato OFX para começar."
-                                : "Todas as transações foram conciliadas com sucesso."}
+                                : filterType !== "all"
+                                  ? "Use os filtros acima para ver outros tipos de transação."
+                                  : "Todas as transações foram conciliadas com sucesso."}
                             </p>
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      unreconciledTransactions.map((transaction) => (
+                      filteredTransactions.map((transaction) => (
                         <TableRow
                           key={transaction.id}
                           className={selectedTransactions.has(transaction.id) ? "bg-blue-50" : ""}

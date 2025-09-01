@@ -247,7 +247,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
     if (!rules) {
       // Criar regras padrão OTIMIZADAS no localStorage se não existirem
       const defaultRules: ReconciliationRule[] = [
-        // REGRAS PARA RECEBIMENTOS (ENTRADAS)
+        // REGRAS PARA RECEBIMENTOS (ENTRADAS) - MAIS ABRANGENTES
         {
           id: "1",
           user_id: userId,
@@ -287,6 +287,18 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
         {
           id: "4",
           user_id: userId,
+          rule_name: "PIX Entrada",
+          bank_description_pattern: "PIX ENTRADA",
+          transaction_description: "PIX Recebido",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "5",
+          user_id: userId,
           rule_name: "Depósito",
           bank_description_pattern: "DEPOSITO",
           transaction_description: "Depósito",
@@ -297,7 +309,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "5",
+          id: "6",
           user_id: userId,
           rule_name: "Recebimento",
           bank_description_pattern: "RECEBIMENTO",
@@ -309,7 +321,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "6",
+          id: "7",
           user_id: userId,
           rule_name: "Transferência Recebida",
           bank_description_pattern: "TRANSFERENCIA RECEBIDA",
@@ -321,7 +333,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "7",
+          id: "8",
           user_id: userId,
           rule_name: "TED Recebido",
           bank_description_pattern: "TED RECEBIDO",
@@ -333,7 +345,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "8",
+          id: "9",
           user_id: userId,
           rule_name: "Crédito Geral",
           bank_description_pattern: "CREDITO",
@@ -344,9 +356,34 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           use_original_description: true,
           created_at: new Date().toISOString(),
         },
+        {
+          id: "10",
+          user_id: userId,
+          rule_name: "Entrada Genérica",
+          bank_description_pattern: "ENTRADA",
+          transaction_description: "Entrada",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        // REGRAS MAIS GENÉRICAS PARA CRÉDITOS (QUALQUER COISA QUE SEJA CREDIT)
+        {
+          id: "11",
+          user_id: userId,
+          rule_name: "Qualquer Crédito",
+          bank_description_pattern: "", // Padrão vazio para pegar qualquer coisa
+          transaction_description: "Recebimento",
+          transaction_type: "entrada",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
         // REGRAS PARA DESPESAS (SAÍDAS)
         {
-          id: "9",
+          id: "12",
           user_id: userId,
           rule_name: "PIX Enviado",
           bank_description_pattern: "PIX ENVIADO",
@@ -358,7 +395,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "10",
+          id: "13",
           user_id: userId,
           rule_name: "PIX Débito",
           bank_description_pattern: "PIX DES",
@@ -370,7 +407,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "11",
+          id: "14",
           user_id: userId,
           rule_name: "Transferência Geral",
           bank_description_pattern: "TRANSFERENCIA",
@@ -382,7 +419,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "12",
+          id: "15",
           user_id: userId,
           rule_name: "TED Enviado",
           bank_description_pattern: "TED",
@@ -394,7 +431,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "13",
+          id: "16",
           user_id: userId,
           rule_name: "Cartão de Crédito",
           bank_description_pattern: "CARTAO",
@@ -406,7 +443,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "14",
+          id: "17",
           user_id: userId,
           rule_name: "Saque",
           bank_description_pattern: "SAQUE",
@@ -418,7 +455,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "15",
+          id: "18",
           user_id: userId,
           rule_name: "Débito Automático",
           bank_description_pattern: "DEB AUTOMATICO",
@@ -430,7 +467,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "16",
+          id: "19",
           user_id: userId,
           rule_name: "Agora Pay",
           bank_description_pattern: "AGORA",
@@ -442,7 +479,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "17",
+          id: "20",
           user_id: userId,
           rule_name: "Pagamento",
           bank_description_pattern: "PAGAMENTO",
@@ -454,7 +491,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "18",
+          id: "21",
           user_id: userId,
           rule_name: "Compra Débito",
           bank_description_pattern: "COMPRA DEBITO",
@@ -466,7 +503,7 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "19",
+          id: "22",
           user_id: userId,
           rule_name: "Tarifa",
           bank_description_pattern: "TARIFA",
@@ -478,11 +515,24 @@ export async function getReconciliationRules(userId: string): Promise<Reconcilia
           created_at: new Date().toISOString(),
         },
         {
-          id: "20",
+          id: "23",
           user_id: userId,
           rule_name: "Débito Geral",
           bank_description_pattern: "DEBITO",
           transaction_description: "Débito",
+          transaction_type: "despesa",
+          auto_reconcile: true,
+          active: true,
+          use_original_description: true,
+          created_at: new Date().toISOString(),
+        },
+        // REGRA CATCH-ALL PARA DÉBITOS (QUALQUER COISA QUE SEJA DEBIT)
+        {
+          id: "24",
+          user_id: userId,
+          rule_name: "Qualquer Débito",
+          bank_description_pattern: "", // Padrão vazio para pegar qualquer coisa
+          transaction_description: "Despesa",
           transaction_type: "despesa",
           auto_reconcile: true,
           active: true,
@@ -608,9 +658,16 @@ export async function autoReconcileTransactions(
     const bankDescriptionUpper = bankTxn.description.toUpperCase()
     console.log("🔍 Descrição em maiúscula para matching:", `"${bankDescriptionUpper}"`)
 
-    // MELHORAR O MATCHING - Ordenar regras por especificidade
+    // MELHORAR O MATCHING - Ordenar regras por especificidade E tipo
     const sortedRules = [...rules].sort((a, b) => {
-      // Regras mais específicas primeiro (padrões mais longos)
+      // Primeiro, priorizar regras com padrão não vazio
+      const aHasPattern = a.bank_description_pattern.trim().length > 0
+      const bHasPattern = b.bank_description_pattern.trim().length > 0
+
+      if (aHasPattern && !bHasPattern) return -1
+      if (!aHasPattern && bHasPattern) return 1
+
+      // Depois, regras mais específicas primeiro (padrões mais longos)
       return b.bank_description_pattern.length - a.bank_description_pattern.length
     })
 
@@ -628,31 +685,39 @@ export async function autoReconcileTransactions(
         continue
       }
 
-      // Limpar padrão e converter para maiúscula
+      // Verificar compatibilidade de tipo PRIMEIRO
+      const expectedTransactionType = bankTxn.transaction_type === "credit" ? "entrada" : "despesa"
+      console.log(`  🔄 Tipo esperado: "${expectedTransactionType}" vs Tipo da regra: "${rule.transaction_type}"`)
+
+      const typeMatch = rule.transaction_type === expectedTransactionType
+      console.log(`  📊 Match do tipo: ${typeMatch}`)
+
+      if (!typeMatch) {
+        console.log("  ❌ Tipo incompatível - pulando")
+        continue
+      }
+
+      // Agora verificar o padrão
       const pattern = rule.bank_description_pattern.replace(/%/g, "").toUpperCase().trim()
       console.log(`  📋 Padrão limpo: "${pattern}"`)
-      console.log(`  🔍 Verificando se "${bankDescriptionUpper}" contém "${pattern}"`)
 
-      const patternMatch = bankDescriptionUpper.includes(pattern)
-      console.log(`  📊 Match do padrão: ${patternMatch}`)
+      let patternMatch = false
+
+      if (pattern === "") {
+        // Regra catch-all - sempre faz match se o tipo estiver correto
+        patternMatch = true
+        console.log("  🎯 REGRA CATCH-ALL - Match automático por tipo!")
+      } else {
+        console.log(`  🔍 Verificando se "${bankDescriptionUpper}" contém "${pattern}"`)
+        patternMatch = bankDescriptionUpper.includes(pattern)
+        console.log(`  📊 Match do padrão: ${patternMatch}`)
+      }
 
       if (patternMatch) {
         console.log("  ✅ PADRÃO ENCONTRADO!")
-
-        // Verificar compatibilidade de tipo
-        const expectedTransactionType = bankTxn.transaction_type === "credit" ? "entrada" : "despesa"
-        console.log(`  🔄 Tipo esperado: "${expectedTransactionType}" vs Tipo da regra: "${rule.transaction_type}"`)
-
-        const typeMatch = rule.transaction_type === expectedTransactionType
-        console.log(`  📊 Match do tipo: ${typeMatch}`)
-
-        if (typeMatch) {
-          applicableRule = rule
-          console.log(`  🎯 REGRA APLICÁVEL ENCONTRADA: "${rule.rule_name}"`)
-          break
-        } else {
-          console.log("  ❌ Tipo incompatível")
-        }
+        applicableRule = rule
+        console.log(`  🎯 REGRA APLICÁVEL ENCONTRADA: "${rule.rule_name}"`)
+        break
       } else {
         console.log("  ❌ Padrão não encontrado")
       }
