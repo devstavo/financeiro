@@ -11,6 +11,17 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
   ArrowLeft,
   Upload,
   FileText,
@@ -22,6 +33,11 @@ import {
   RefreshCw,
   Zap,
   Bug,
+  X,
+  MoreHorizontal,
+  Trash2,
+  Eye,
+  Download,
 } from "lucide-react"
 import { OFXParser } from "@/lib/ofx-parser"
 import {
@@ -61,6 +77,10 @@ export default function ConciliacaoPage() {
     created: number
     details?: any[]
   } | null>(null)
+
+  // Estados para gerenciamento de extratos
+  const [deletingStatement, setDeletingStatement] = useState<BankStatement | null>(null)
+  const [viewingStatement, setViewingStatement] = useState<BankStatement | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -103,6 +123,15 @@ export default function ConciliacaoPage() {
       console.log("📁 Arquivo selecionado:", file.name, file.size, "bytes")
       setSelectedFile(file)
       setUploadResult(null)
+    }
+  }
+
+  const handleCancelSelection = () => {
+    console.log("❌ Cancelando seleção de arquivo")
+    setSelectedFile(null)
+    setUploadResult(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
@@ -256,6 +285,44 @@ export default function ConciliacaoPage() {
     console.log("🔧 Debug info:", debugData)
   }
 
+  const handleDeleteStatement = async (statement: BankStatement) => {
+    if (!user) return
+
+    console.log("🗑️ Deletando extrato:", statement.file_name)
+
+    // Aqui você implementaria a lógica de deletar do banco de dados
+    // Por enquanto, vamos simular removendo do estado local
+
+    try {
+      // TODO: Implementar delete no banco de dados
+      // await deleteStatement(statement.id)
+
+      // Remover do estado local por enquanto
+      setBankStatements((prev) => prev.filter((s) => s.id !== statement.id))
+
+      // Recarregar dados para garantir consistência
+      await loadData(user.id)
+
+      setDeletingStatement(null)
+      console.log("✅ Extrato deletado com sucesso")
+    } catch (error) {
+      console.error("❌ Erro ao deletar extrato:", error)
+    }
+  }
+
+  const handleDownloadStatement = (statement: BankStatement) => {
+    // Simular download do arquivo original
+    console.log("📥 Download do extrato:", statement.file_name)
+
+    // Criar um link de download simulado
+    const element = document.createElement("a")
+    element.href = `data:text/plain;charset=utf-8,${encodeURIComponent(`Extrato: ${statement.file_name}\nBanco: ${statement.bank_name}\nConta: ${statement.account_number}\nData: ${statement.statement_date}\nSaldo: ${statement.balance}`)}`
+    element.download = statement.file_name
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+  }
+
   const readFileAsText = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -274,6 +341,10 @@ export default function ConciliacaoPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR")
+  }
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString("pt-BR")
   }
 
   const getTransactionTypeBadge = (type: "debit" | "credit") => {
@@ -584,25 +655,39 @@ export default function ConciliacaoPage() {
 
                 {selectedFile && (
                   <div className="bg-blue-50 p-3 rounded-lg max-w-md mx-auto">
-                    <p className="text-sm font-medium text-blue-800">Arquivo selecionado:</p>
-                    <p className="text-sm text-blue-600">{selectedFile.name}</p>
-                    <p className="text-xs text-blue-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-800">Arquivo selecionado:</p>
+                        <p className="text-sm text-blue-600">{selectedFile.name}</p>
+                        <p className="text-xs text-blue-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button
+                        onClick={handleCancelSelection}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
 
-                <Button onClick={handleUpload} disabled={!selectedFile || uploading} className="w-full max-w-md">
-                  {uploading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Importar Extrato
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={handleUpload} disabled={!selectedFile || uploading} className="w-full max-w-md">
+                    {uploading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Importar Extrato
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -723,11 +808,37 @@ export default function ConciliacaoPage() {
                 </div>
               ) : (
                 bankStatements.map((statement) => (
-                  <Card key={statement.id}>
+                  <Card key={statement.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Banknote className="w-5 h-5" />
-                        {statement.bank_name}
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Banknote className="w-5 h-5" />
+                          {statement.bank_name}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewingStatement(statement)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadStatement(statement)}>
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingStatement(statement)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Deletar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -754,7 +865,7 @@ export default function ConciliacaoPage() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Importado:</span>
-                          <span className="font-medium text-xs">{formatDate(statement.imported_at)}</span>
+                          <span className="font-medium text-xs">{formatDateTime(statement.imported_at)}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -764,6 +875,95 @@ export default function ConciliacaoPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Dialog de Confirmação - Deletar Extrato */}
+        <AlertDialog open={!!deletingStatement} onOpenChange={() => setDeletingStatement(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Deletar Extrato</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja deletar o extrato <strong>"{deletingStatement?.file_name}"</strong>?
+                <br />
+                <br />
+                <span className="text-red-600 font-medium">
+                  ⚠️ ATENÇÃO: Todas as transações bancárias relacionadas a este extrato também serão deletadas!
+                </span>
+                <br />
+                <br />
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletingStatement && handleDeleteStatement(deletingStatement)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Sim, Deletar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Visualização - Detalhes do Extrato */}
+        <AlertDialog open={!!viewingStatement} onOpenChange={() => setViewingStatement(null)}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Detalhes do Extrato</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  {viewingStatement && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <strong>Banco:</strong> {viewingStatement.bank_name}
+                        </div>
+                        <div>
+                          <strong>Conta:</strong> {viewingStatement.account_number}
+                        </div>
+                        <div>
+                          <strong>Data do Extrato:</strong> {formatDate(viewingStatement.statement_date)}
+                        </div>
+                        <div>
+                          <strong>Saldo:</strong>{" "}
+                          <span className={viewingStatement.balance >= 0 ? "text-green-600" : "text-red-600"}>
+                            {formatCurrency(viewingStatement.balance)}
+                          </span>
+                        </div>
+                        <div>
+                          <strong>Arquivo:</strong> {viewingStatement.file_name}
+                        </div>
+                        <div>
+                          <strong>Importado em:</strong> {formatDateTime(viewingStatement.imported_at)}
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="bg-blue-50 p-3 rounded">
+                            <div className="font-medium text-blue-800">Transações Relacionadas</div>
+                            <div className="text-2xl font-bold text-blue-600">
+                              {unreconciledTransactions.filter((t) => t.statement_id === viewingStatement.id).length}
+                            </div>
+                            <div className="text-xs text-blue-600">pendentes de conciliação</div>
+                          </div>
+                          <div className="bg-green-50 p-3 rounded">
+                            <div className="font-medium text-green-800">Status</div>
+                            <div className="text-lg font-bold text-green-600">Importado</div>
+                            <div className="text-xs text-green-600">pronto para conciliação</div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Fechar</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )
