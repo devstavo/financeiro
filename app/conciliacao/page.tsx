@@ -21,6 +21,7 @@ import {
   Banknote,
   RefreshCw,
   Zap,
+  Bug,
 } from "lucide-react"
 import { OFXParser } from "@/lib/ofx-parser"
 import {
@@ -58,6 +59,7 @@ export default function ConciliacaoPage() {
   const [reconciliationResult, setReconciliationResult] = useState<{
     reconciled: number
     created: number
+    details?: any[]
   } | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -85,6 +87,10 @@ export default function ConciliacaoPage() {
 
       setBankStatements(statements)
       setUnreconciledTransactions(unreconciled)
+
+      console.log("📊 Dados carregados:")
+      console.log("  - Extratos:", statements.length)
+      console.log("  - Transações não conciliadas:", unreconciled.length)
     } catch (error) {
       console.error("❌ Erro ao carregar dados:", error)
     }
@@ -163,14 +169,27 @@ export default function ConciliacaoPage() {
   }
 
   const handleAutoReconcile = async () => {
-    if (!user || unreconciledTransactions.length === 0) return
+    if (!user) return
+
+    console.log("🚀 === INICIANDO CONCILIAÇÃO AUTOMÁTICA ===")
+    console.log("📊 Transações não conciliadas disponíveis:", unreconciledTransactions.length)
+
+    if (unreconciledTransactions.length === 0) {
+      setReconciliationResult({
+        reconciled: 0,
+        created: 0,
+        details: [],
+      })
+      console.log("⚠️ Nenhuma transação para conciliar")
+      return
+    }
 
     setReconciling(true)
     setReconciliationResult(null)
 
     try {
-      console.log("🔄 Iniciando conciliação automática...")
       const result = await autoReconcileTransactions(user.id, unreconciledTransactions)
+      console.log("🎉 Resultado da conciliação:", result)
 
       setReconciliationResult(result)
 
@@ -178,6 +197,11 @@ export default function ConciliacaoPage() {
       await loadData(user.id)
     } catch (error) {
       console.error("❌ Erro na conciliação:", error)
+      setReconciliationResult({
+        reconciled: 0,
+        created: 0,
+        details: [{ error: String(error) }],
+      })
     } finally {
       setReconciling(false)
     }
@@ -186,7 +210,7 @@ export default function ConciliacaoPage() {
   const handleDebugRules = async () => {
     if (!user) return
 
-    console.log("🔧 Modo debug ativado")
+    console.log("🔧 Ativando modo debug...")
     const rules = await getReconciliationRules(user.id)
     const unreconciledTxns = await getUnreconciledTransactions(user.id)
 
@@ -201,10 +225,9 @@ export default function ConciliacaoPage() {
           return txn.description.toUpperCase().includes(pattern)
         })
 
-        // Simular qual descrição seria usada
         const applicableRule = matchingRules.find((rule) => {
           const expectedType = txn.transaction_type === "credit" ? "entrada" : "despesa"
-          return rule.transaction_type === expectedType
+          return rule.transaction_type === expectedType && rule.active && rule.auto_reconcile
         })
 
         let finalDescription = "Nenhuma regra aplicável"
@@ -222,6 +245,8 @@ export default function ConciliacaoPage() {
           matchingRules: matchingRules.map((r) => r.rule_name),
           applicableRule: applicableRule?.rule_name || "Nenhuma",
           finalDescription: finalDescription,
+          ruleActive: applicableRule?.active || false,
+          ruleAutoReconcile: applicableRule?.auto_reconcile || false,
         }
       }),
     }
@@ -371,8 +396,45 @@ export default function ConciliacaoPage() {
             <Zap className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-800">Conciliação Automática Concluída!</AlertTitle>
             <AlertDescription className="text-blue-700">
-              {reconciliationResult.created} transações criadas e {reconciliationResult.reconciled} conciliadas
-              automaticamente com as descrições originais do OFX.
+              <div className="space-y-2">
+                <div>
+                  <strong>Resultados:</strong>
+                </div>
+                <div>• {reconciliationResult.created} transações criadas</div>
+                <div>• {reconciliationResult.reconciled} transações conciliadas</div>
+                {reconciliationResult.details && reconciliationResult.details.length > 0 && (
+                  <div className="mt-3">
+                    <strong>Detalhes:</strong>
+                    <div className="text-xs mt-1 space-y-1">
+                      {reconciliationResult.details.slice(0, 5).map((detail, index) => (
+                        <div key={index} className="bg-white p-2 rounded border">
+                          <div>
+                            <strong>Transação:</strong> {detail.transaction}
+                          </div>
+                          <div>
+                            <strong>Status:</strong> {detail.status}
+                          </div>
+                          {detail.rule && (
+                            <div>
+                              <strong>Regra:</strong> {detail.rule}
+                            </div>
+                          )}
+                          {detail.error && (
+                            <div className="text-red-600">
+                              <strong>Erro:</strong> {detail.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {reconciliationResult.details.length > 5 && (
+                        <div className="text-gray-500">
+                          ... e mais {reconciliationResult.details.length - 5} transações
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -381,7 +443,7 @@ export default function ConciliacaoPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                🔧 Informações de Debug - Descrições Originais
+                🔧 Informações de Debug Detalhadas
                 <Button variant="outline" size="sm" onClick={() => setDebugMode(false)}>
                   Fechar
                 </Button>
@@ -389,49 +451,97 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-3 rounded">
+                    <div className="font-medium text-blue-800">Regras Carregadas</div>
+                    <div className="text-2xl font-bold text-blue-600">{debugInfo.rulesCount}</div>
+                  </div>
+                  <div className="bg-orange-50 p-3 rounded">
+                    <div className="font-medium text-orange-800">Transações Pendentes</div>
+                    <div className="text-2xl font-bold text-orange-600">{debugInfo.unreconciledCount}</div>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="font-medium text-green-800">Taxa de Match</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {debugInfo.sampleMatching.filter((s: any) => s.applicableRule !== "Nenhuma").length}/
+                      {debugInfo.sampleMatching.length}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <h4 className="font-medium mb-2">Regras Carregadas ({debugInfo.rulesCount}):</h4>
-                  <div className="bg-gray-50 p-3 rounded text-sm">
+                  <h4 className="font-medium mb-2">Regras Ativas ({debugInfo.rulesCount}):</h4>
+                  <div className="bg-gray-50 p-3 rounded text-sm max-h-60 overflow-y-auto">
                     {debugInfo.rules.map((rule: any, index: number) => (
-                      <div key={index} className="mb-2 p-2 border rounded">
-                        <div>
+                      <div key={index} className="mb-2 p-2 border rounded bg-white">
+                        <div className="flex items-center justify-between">
                           <strong>{rule.rule_name}</strong>
+                          <div className="flex gap-2">
+                            <Badge variant={rule.active ? "default" : "secondary"}>
+                              {rule.active ? "Ativo" : "Inativo"}
+                            </Badge>
+                            <Badge variant={rule.auto_reconcile ? "default" : "secondary"}>
+                              {rule.auto_reconcile ? "Auto" : "Manual"}
+                            </Badge>
+                          </div>
                         </div>
-                        <div>Padrão: "{rule.bank_description_pattern}"</div>
-                        <div>Tipo: {rule.transaction_type}</div>
-                        <div>Usar descrição original: {rule.use_original_description ? "✅ Sim" : "❌ Não"}</div>
-                        {!rule.use_original_description && (
-                          <div>Descrição padrão: "{rule.transaction_description}"</div>
-                        )}
+                        <div className="text-xs text-gray-600 mt-1">
+                          <div>Padrão: "{rule.bank_description_pattern}"</div>
+                          <div>Tipo: {rule.transaction_type}</div>
+                          <div>Usar descrição original: {rule.use_original_description ? "✅ Sim" : "❌ Não"}</div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Simulação de Conciliação (primeiras 5 transações):</h4>
-                  <div className="bg-gray-50 p-3 rounded text-sm">
+                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 5 transações):</h4>
+                  <div className="bg-gray-50 p-3 rounded text-sm max-h-80 overflow-y-auto">
                     {debugInfo.sampleMatching.map((sample: any, index: number) => (
                       <div key={index} className="mb-3 p-3 border rounded bg-white">
                         <div className="mb-2">
-                          <strong>Descrição Original do OFX:</strong>
-                          <span className="font-mono bg-blue-50 px-2 py-1 rounded ml-2">
+                          <strong>Descrição Original:</strong>
+                          <span className="font-mono bg-blue-50 px-2 py-1 rounded ml-2 text-xs">
                             {sample.originalDescription}
                           </span>
                         </div>
-                        <div className="mb-2">
+                        <div className="mb-2 text-xs">
                           <strong>Tipo Bancário:</strong> {sample.type}
                         </div>
-                        <div className="mb-2">
+                        <div className="mb-2 text-xs">
                           <strong>Regras que fazem match:</strong>{" "}
                           {sample.matchingRules.length > 0 ? sample.matchingRules.join(", ") : "Nenhuma"}
                         </div>
-                        <div className="mb-2">
-                          <strong>Regra aplicável:</strong> {sample.applicableRule}
+                        <div className="mb-2 text-xs">
+                          <strong>Regra aplicável:</strong>
+                          <span
+                            className={
+                              sample.applicableRule !== "Nenhuma" ? "text-green-600 font-medium" : "text-red-600"
+                            }
+                          >
+                            {sample.applicableRule}
+                          </span>
                         </div>
-                        <div className="p-2 bg-green-50 rounded">
-                          <strong>Descrição final na transação:</strong>
-                          <span className="font-mono text-green-800 ml-2">{sample.finalDescription}</span>
+                        {sample.applicableRule !== "Nenhuma" && (
+                          <div className="mb-2 text-xs">
+                            <div>✅ Regra ativa: {sample.ruleActive ? "Sim" : "Não"}</div>
+                            <div>✅ Auto-conciliação: {sample.ruleAutoReconcile ? "Sim" : "Não"}</div>
+                          </div>
+                        )}
+                        <div
+                          className={`p-2 rounded text-xs ${
+                            sample.applicableRule !== "Nenhuma" ? "bg-green-50" : "bg-red-50"
+                          }`}
+                        >
+                          <strong>Resultado:</strong>
+                          <span
+                            className={`font-mono ml-2 ${
+                              sample.applicableRule !== "Nenhuma" ? "text-green-800" : "text-red-800"
+                            }`}
+                          >
+                            {sample.finalDescription}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -522,7 +632,8 @@ export default function ConciliacaoPage() {
               <h2 className="text-xl font-semibold">Transações Não Conciliadas</h2>
               <div className="flex gap-2">
                 <Button onClick={handleDebugRules} variant="outline" size="sm">
-                  🔧 Debug
+                  <Bug className="w-4 h-4 mr-2" />
+                  Debug Detalhado
                 </Button>
                 <Button
                   onClick={handleAutoReconcile}
@@ -537,7 +648,7 @@ export default function ConciliacaoPage() {
                   ) : (
                     <>
                       <Zap className="w-4 h-4 mr-2" />
-                      Conciliar Automaticamente
+                      Conciliar Automaticamente ({unreconciledTransactions.length})
                     </>
                   )}
                 </Button>
@@ -562,7 +673,14 @@ export default function ConciliacaoPage() {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                           <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
-                          Todas as transações estão conciliadas!
+                          <div>
+                            <p className="font-medium">Nenhuma transação pendente!</p>
+                            <p className="text-sm mt-1">
+                              {bankStatements.length === 0
+                                ? "Importe um extrato OFX para começar."
+                                : "Todas as transações foram conciliadas com sucesso."}
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -601,6 +719,7 @@ export default function ConciliacaoPage() {
                 <div className="col-span-full text-center py-8 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Nenhum extrato importado ainda.</p>
+                  <p className="text-sm mt-1">Importe um arquivo OFX do Bradesco para começar.</p>
                 </div>
               ) : (
                 bankStatements.map((statement) => (
