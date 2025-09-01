@@ -29,6 +29,7 @@ import {
   Users,
   Link,
   CheckCircle,
+  Banknote,
 } from "lucide-react"
 import {
   getTransactionsByMonth,
@@ -251,7 +252,10 @@ export default function Dashboard() {
       setClosedMonths(closedMonthsData)
 
       // Avançar para o próximo mês
-      const [year, month] = currentMonth.split("-").map(Number)
+      const [yearStr, monthStr] = currentMonth.split("-")
+      const year = Number.parseInt(yearStr, 10)
+      const month = Number.parseInt(monthStr, 10)
+
       const nextMonth = month === 12 ? 1 : month + 1
       const nextYear = month === 12 ? year + 1 : year
       setCurrentMonth(`${nextYear}-${String(nextMonth).padStart(2, "0")}`)
@@ -259,7 +263,9 @@ export default function Dashboard() {
   }
 
   const navigateMonth = (direction: "prev" | "next") => {
-    const [year, month] = currentMonth.split("-").map(Number)
+    const [yearStr, monthStr] = currentMonth.split("-")
+    const year = Number.parseInt(yearStr, 10)
+    const month = Number.parseInt(monthStr, 10)
 
     if (direction === "prev") {
       const prevMonth = month === 1 ? 12 : month - 1
@@ -312,7 +318,9 @@ export default function Dashboard() {
   }
 
   const formatMonthYear = (monthStr: string) => {
-    const [year, month] = monthStr.split("-")
+    const [yearStr, monthStr2] = monthStr.split("-")
+    const year = yearStr
+    const month = monthStr2
     const monthNames = [
       "Janeiro",
       "Fevereiro",
@@ -327,7 +335,7 @@ export default function Dashboard() {
       "Novembro",
       "Dezembro",
     ]
-    return `${monthNames[Number.parseInt(month) - 1]} ${year}`
+    return `${monthNames[Number.parseInt(month, 10) - 1]} ${year}`
   }
 
   const filteredSuggestions = suggestions
@@ -379,6 +387,10 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button onClick={() => router.push("/conciliacao")} variant="outline" size="sm">
+              <Banknote className="w-4 h-4 mr-2" />
+              Conciliação
+            </Button>
             <Button onClick={() => router.push("/dividas")} variant="outline" size="sm">
               <Users className="w-4 h-4 mr-2" />
               Dívidas

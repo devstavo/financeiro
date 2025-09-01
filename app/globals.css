@@ -2,81 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -84,7 +63,372 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
+}
+
+@layer components {
+  /* Estilos específicos para o sistema financeiro */
+  .financial-card {
+    @apply bg-white border border-gray-200 rounded-lg shadow-sm;
+  }
+
+  .financial-input {
+    @apply border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  }
+
+  .financial-button {
+    @apply bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors;
+  }
+
+  /* Estilos para tabelas */
+  .financial-table {
+    @apply w-full border-collapse;
+  }
+
+  .financial-table th {
+    @apply bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200;
+  }
+
+  .financial-table td {
+    @apply px-4 py-3 text-sm text-gray-900 border-b border-gray-200;
+  }
+
+  /* Estilos para formulários */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  .form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  .form-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white;
+  }
+
+  .form-textarea {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500;
+    resize: vertical;
+  }
+
+  /* Estados de loading */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+  }
+
+  /* Estilos para alertas */
+  .alert-success {
+    @apply bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md;
+  }
+
+  .alert-error {
+    @apply bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md;
+  }
+
+  .alert-warning {
+    @apply bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md;
+  }
+
+  .alert-info {
+    @apply bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md;
+  }
+}
+
+@layer utilities {
+  /* Animações suaves */
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  /* Utilitários de moeda */
+  .text-currency-positive {
+    @apply text-green-600 font-medium;
+  }
+
+  .text-currency-negative {
+    @apply text-red-600 font-medium;
+  }
+
+  .bg-currency-positive {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .bg-currency-negative {
+    @apply bg-red-100 text-red-800;
+  }
+
+  /* Scrollbar personalizada */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+  }
+
+  /* Utilitários de resize */
+  .resize-vertical {
+    resize: vertical;
+  }
+
+  .resize-horizontal {
+    resize: horizontal;
+  }
+
+  .resize-both {
+    resize: both;
+  }
+
+  .resize-none {
+    resize: none;
+  }
+}
+
+/* Keyframes para animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsividade */
+@media (max-width: 640px) {
+  .financial-card {
+    @apply mx-2;
+  }
+
+  .financial-table {
+    @apply text-xs;
+  }
+
+  .financial-table th,
+  .financial-table td {
+    @apply px-2 py-2;
+  }
+}
+
+/* Estilos para gráficos */
+.recharts-wrapper {
+  @apply w-full h-full;
+}
+
+.recharts-surface {
+  @apply overflow-visible;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .financial-card {
+    @apply shadow-none border border-gray-300;
+  }
+
+  body {
+    @apply text-black bg-white;
+  }
+}
+
+/* Estilos específicos para componentes do sistema */
+.transaction-row:hover {
+  @apply bg-gray-50;
+}
+
+.debt-card {
+  @apply transition-all duration-200 hover:shadow-md;
+}
+
+.chart-container {
+  @apply bg-white rounded-lg border border-gray-200 p-4;
+}
+
+.stats-card {
+  @apply bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200;
+}
+
+.success-badge {
+  @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.error-badge {
+  @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.warning-badge {
+  @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.info-badge {
+  @apply bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+/* Estilos para upload de arquivos */
+.file-upload-area {
+  @apply border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors;
+}
+
+.file-upload-area.dragover {
+  @apply border-blue-500 bg-blue-50;
+}
+
+/* Estilos para navegação */
+.nav-link {
+  @apply px-3 py-2 rounded-md text-sm font-medium transition-colors;
+}
+
+.nav-link.active {
+  @apply bg-blue-100 text-blue-700;
+}
+
+.nav-link:hover {
+  @apply bg-gray-100 text-gray-900;
+}
+
+/* Estilos para modais */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl max-w-md w-full mx-4;
+}
+
+/* Estilos para tooltips */
+.tooltip {
+  @apply absolute z-10 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg;
+}
+
+/* Estilos para progress bars */
+.progress-bar {
+  @apply w-full bg-gray-200 rounded-full h-2;
+}
+
+.progress-fill {
+  @apply h-2 bg-blue-600 rounded-full transition-all duration-300;
+}
+
+/* Estilos para skeleton loading */
+.skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+.skeleton-text {
+  @apply h-4 bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-avatar {
+  @apply w-10 h-10 bg-gray-200 rounded-full animate-pulse;
+}
+
+/* Estilos para empty states */
+.empty-state {
+  @apply text-center py-12 px-4;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mx-auto mb-4 text-gray-400;
+}
+
+.empty-state-title {
+  @apply text-lg font-medium text-gray-900 mb-2;
+}
+
+.empty-state-description {
+  @apply text-gray-500 mb-6;
+}
+
+/* Estilos para status indicators */
+.status-dot {
+  @apply inline-block w-2 h-2 rounded-full mr-2;
+}
+
+.status-dot.success {
+  @apply bg-green-500;
+}
+
+.status-dot.error {
+  @apply bg-red-500;
+}
+
+.status-dot.warning {
+  @apply bg-yellow-500;
+}
+
+.status-dot.info {
+  @apply bg-blue-500;
+}
+
+/* Estilos para cards com hover */
+.hover-card {
+  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
+}
+
+/* Estilos para inputs com ícones */
+.input-with-icon {
+  @apply relative;
+}
+
+.input-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400;
+}
+
+.input-with-icon input {
+  @apply pl-10;
+}
+
+/* Estilos para breadcrumbs */
+.breadcrumb {
+  @apply flex items-center space-x-2 text-sm text-gray-500;
+}
+
+.breadcrumb-item {
+  @apply hover:text-gray-700;
+}
+
+.breadcrumb-separator {
+  @apply text-gray-300;
+}
+
+/* Estilos para tags */
+.tag {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.tag.primary {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.tag.secondary {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.tag.success {
+  @apply bg-green-100 text-green-800;
+}
+
+.tag.danger {
+  @apply bg-red-100 text-red-800;
+}
+
+.tag.warning {
+  @apply bg-yellow-100 text-yellow-800;
 }
