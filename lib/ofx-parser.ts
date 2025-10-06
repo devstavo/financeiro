@@ -1,4 +1,3 @@
-// Biblioteca para processar arquivos OFX do Bradesco
 export interface OFXTransaction {
   date: string
   amount: number

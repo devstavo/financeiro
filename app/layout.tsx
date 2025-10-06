@@ -12,7 +12,6 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Financeiro Farinea",
   description: "Sistema de controle financeiro pessoal",
-    generator: 'v0.app'
 }
 
 export default function RootLayout({

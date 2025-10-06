@@ -351,6 +351,24 @@ export default function ConciliacaoPage() {
     console.log("  - Regras ENTRADA:", entradaRules.length)
     console.log("  - Regras DESPESA:", despesaRules.length)
 
+    // Log das primeiras transações de crédito
+    if (creditTransactions.length > 0) {
+      console.log("🔍 PRIMEIRAS TRANSAÇÕES DE CRÉDITO:")
+      creditTransactions.slice(0, 5).forEach((txn, index) => {
+        console.log(`  ${index + 1}. "${txn.description}" - R$ ${txn.amount} - Tipo: ${txn.transaction_type}`)
+      })
+    }
+
+    // Log das regras de entrada
+    if (entradaRules.length > 0) {
+      console.log("🔍 REGRAS DE ENTRADA:")
+      entradaRules.forEach((rule, index) => {
+        console.log(
+          `  ${index + 1}. "${rule.rule_name}" - Padrão: "${rule.bank_description_pattern}" - Ativo: ${rule.active}`,
+        )
+      })
+    }
+
     const debugData = {
       rules: rules,
       unreconciledTransactions: unreconciledTxns,
@@ -362,8 +380,9 @@ export default function ConciliacaoPage() {
       unreconciledCount: unreconciledTxns.length,
       creditCount: creditTransactions.length,
       debitCount: debitTransactions.length,
-      sampleMatching: unreconciledTxns.slice(0, 15).map((txn) => {
+      sampleMatching: unreconciledTxns.slice(0, 20).map((txn) => {
         const relevantRules = txn.transaction_type === "credit" ? entradaRules : despesaRules
+        const expectedType = txn.transaction_type === "credit" ? "entrada" : "despesa"
 
         const matchingRules = relevantRules.filter((rule) => {
           const pattern = rule.bank_description_pattern.replace(/%/g, "").toUpperCase().trim()
@@ -372,7 +391,6 @@ export default function ConciliacaoPage() {
         })
 
         const applicableRule = matchingRules.find((rule) => {
-          const expectedType = txn.transaction_type === "credit" ? "entrada" : "despesa"
           return rule.transaction_type === expectedType && rule.active && rule.auto_reconcile
         })
 
@@ -388,7 +406,7 @@ export default function ConciliacaoPage() {
         return {
           originalDescription: txn.description,
           type: txn.transaction_type,
-          expectedRuleType: txn.transaction_type === "credit" ? "entrada" : "despesa",
+          expectedRuleType: expectedType,
           relevantRulesCount: relevantRules.length,
           matchingRules: matchingRules.map((r) => r.rule_name),
           applicableRule: applicableRule?.rule_name || "Nenhuma",
@@ -397,9 +415,11 @@ export default function ConciliacaoPage() {
           ruleAutoReconcile: applicableRule?.auto_reconcile || false,
           debugInfo: {
             bankType: txn.transaction_type,
-            expectedSystemType: txn.transaction_type === "credit" ? "entrada" : "despesa",
+            expectedSystemType: expectedType,
             ruleType: applicableRule?.transaction_type || "N/A",
             pattern: applicableRule?.bank_description_pattern || "N/A",
+            hasMatchingRules: matchingRules.length > 0,
+            hasApplicableRule: !!applicableRule,
           },
         }
       }),
@@ -594,7 +614,7 @@ export default function ConciliacaoPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-green-200 bg-green-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-green-600 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
@@ -603,13 +623,13 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{formatCurrency(totalUnreconciledCredit)}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {unreconciledTransactions.filter((t) => t.transaction_type === "credit").length} transações
+              <p className="text-xs text-green-600 font-medium mt-1">
+                {unreconciledTransactions.filter((t) => t.transaction_type === "credit").length} transações de ENTRADA
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-red-200 bg-red-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-red-600 flex items-center gap-2">
                 <TrendingDown className="w-4 h-4" />
@@ -618,8 +638,8 @@ export default function ConciliacaoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{formatCurrency(totalUnreconciledDebit)}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {unreconciledTransactions.filter((t) => t.transaction_type === "debit").length} transações
+              <p className="text-xs text-red-600 font-medium mt-1">
+                {unreconciledTransactions.filter((t) => t.transaction_type === "debit").length} transações de DESPESA
               </p>
             </CardContent>
           </Card>
@@ -675,9 +695,9 @@ export default function ConciliacaoPage() {
                 <div>• {reconciliationResult.reconciled} transações conciliadas</div>
                 {reconciliationResult.details && reconciliationResult.details.length > 0 && (
                   <div className="mt-3">
-                    <strong>Detalhes:</strong>
-                    <div className="text-xs mt-1 space-y-1">
-                      {reconciliationResult.details.slice(0, 5).map((detail, index) => (
+                    <strong>Detalhes (primeiros 10):</strong>
+                    <div className="text-xs mt-1 space-y-1 max-h-60 overflow-y-auto">
+                      {reconciliationResult.details.slice(0, 10).map((detail, index) => (
                         <div key={index} className="bg-white p-2 rounded border">
                           <div>
                             <strong>Transação:</strong> {detail.transaction}
@@ -690,16 +710,25 @@ export default function ConciliacaoPage() {
                               <strong>Regra:</strong> {detail.rule}
                             </div>
                           )}
+                          {detail.bankType && (
+                            <div>
+                              <strong>Tipo Banco:</strong> {detail.bankType} → <strong>Sistema:</strong>{" "}
+                              {detail.systemType}
+                            </div>
+                          )}
                           {detail.error && (
                             <div className="text-red-600">
                               <strong>Erro:</strong> {detail.error}
                             </div>
                           )}
+                          {detail.debug && (
+                            <div className="text-xs text-gray-600 mt-1">Debug: {JSON.stringify(detail.debug)}</div>
+                          )}
                         </div>
                       ))}
-                      {reconciliationResult.details.length > 5 && (
+                      {reconciliationResult.details.length > 10 && (
                         <div className="text-gray-500">
-                          ... e mais {reconciliationResult.details.length - 5} transações
+                          ... e mais {reconciliationResult.details.length - 10} transações
                         </div>
                       )}
                     </div>
@@ -735,10 +764,10 @@ export default function ConciliacaoPage() {
                     <div className="text-2xl font-bold text-orange-600">{debugInfo.unreconciledCount}</div>
                     <div className="text-xs text-orange-600">Total não conciliadas</div>
                   </div>
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="font-medium text-green-800">Créditos Pendentes</div>
+                  <div className="bg-green-50 p-3 rounded border-2 border-green-300">
+                    <div className="font-medium text-green-800">⚠️ Créditos Pendentes</div>
                     <div className="text-2xl font-bold text-green-600">{debugInfo.creditCount}</div>
-                    <div className="text-xs text-green-600">Precisam regras "entrada"</div>
+                    <div className="text-xs text-green-600 font-medium">PRECISAM regras "entrada"</div>
                   </div>
                   <div className="bg-red-50 p-3 rounded">
                     <div className="font-medium text-red-800">Débitos Pendentes</div>
@@ -748,28 +777,40 @@ export default function ConciliacaoPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-medium mb-2 text-green-800">
-                      Regras de ENTRADA ({debugInfo.entradaRules.length}):
+                  <div className="border-2 border-green-300 rounded">
+                    <h4 className="font-medium mb-2 text-green-800 bg-green-100 p-2 rounded-t">
+                      🎯 Regras de ENTRADA ({debugInfo.entradaRules.length}) - Para Créditos:
                     </h4>
-                    <div className="bg-green-50 p-3 rounded text-sm max-h-40 overflow-y-auto">
-                      {debugInfo.entradaRules.map((rule: any, index: number) => (
-                        <div key={index} className="mb-1 text-xs">
-                          <strong>{rule.rule_name}</strong>: "{rule.bank_description_pattern}"
-                          {rule.bank_description_pattern === "" && <span className="text-green-600"> (CATCH-ALL)</span>}
-                        </div>
-                      ))}
+                    <div className="bg-green-50 p-3 text-sm max-h-40 overflow-y-auto">
+                      {debugInfo.entradaRules.length === 0 ? (
+                        <div className="text-red-600 font-medium">❌ NENHUMA REGRA DE ENTRADA ENCONTRADA!</div>
+                      ) : (
+                        debugInfo.entradaRules.map((rule: any, index: number) => (
+                          <div key={index} className="mb-1 text-xs">
+                            <strong>{rule.rule_name}</strong>: "{rule.bank_description_pattern}"
+                            {rule.bank_description_pattern === "" && (
+                              <span className="text-green-600 font-bold"> (CATCH-ALL)</span>
+                            )}
+                            {!rule.active && <span className="text-red-600"> (INATIVA)</span>}
+                            {!rule.auto_reconcile && <span className="text-orange-600"> (MANUAL)</span>}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2 text-red-800">
-                      Regras de DESPESA ({debugInfo.despesaRules.length}):
+                    <h4 className="font-medium mb-2 text-red-800 bg-red-100 p-2 rounded-t">
+                      Regras de DESPESA ({debugInfo.despesaRules.length}) - Para Débitos:
                     </h4>
                     <div className="bg-red-50 p-3 rounded text-sm max-h-40 overflow-y-auto">
                       {debugInfo.despesaRules.map((rule: any, index: number) => (
                         <div key={index} className="mb-1 text-xs">
                           <strong>{rule.rule_name}</strong>: "{rule.bank_description_pattern}"
-                          {rule.bank_description_pattern === "" && <span className="text-red-600"> (CATCH-ALL)</span>}
+                          {rule.bank_description_pattern === "" && (
+                            <span className="text-red-600 font-bold"> (CATCH-ALL)</span>
+                          )}
+                          {!rule.active && <span className="text-red-600"> (INATIVA)</span>}
+                          {!rule.auto_reconcile && <span className="text-orange-600"> (MANUAL)</span>}
                         </div>
                       ))}
                     </div>
@@ -777,13 +818,13 @@ export default function ConciliacaoPage() {
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2">Simulação de Matching (primeiras 15 transações):</h4>
+                  <h4 className="font-medium mb-2">🔍 Simulação de Matching (primeiras 20 transações):</h4>
                   <div className="bg-gray-50 p-3 rounded text-sm max-h-96 overflow-y-auto">
                     {debugInfo.sampleMatching.map((sample: any, index: number) => (
                       <div
                         key={index}
-                        className={`mb-3 p-3 border rounded ${
-                          sample.type === "credit" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                        className={`mb-3 p-3 border-2 rounded ${
+                          sample.type === "credit" ? "bg-green-50 border-green-300" : "bg-red-50 border-red-200"
                         }`}
                       >
                         <div className="mb-2">
@@ -830,26 +871,41 @@ export default function ConciliacaoPage() {
                             className={
                               sample.applicableRule !== "Nenhuma"
                                 ? "text-green-600 font-medium ml-1"
-                                : "text-red-600 ml-1"
+                                : "text-red-600 ml-1 font-medium"
                             }
                           >
                             {sample.applicableRule}
                           </span>
                         </div>
+                        {sample.debugInfo && (
+                          <div className="mb-2 text-xs bg-white p-2 rounded border">
+                            <div>
+                              🔍 <strong>Debug Info:</strong>
+                            </div>
+                            <div>• Tipo banco: {sample.debugInfo.bankType}</div>
+                            <div>• Tipo esperado: {sample.debugInfo.expectedSystemType}</div>
+                            <div>• Tipo da regra: {sample.debugInfo.ruleType}</div>
+                            <div>• Padrão: "{sample.debugInfo.pattern}"</div>
+                            <div>
+                              • Tem regras que fazem match: {sample.debugInfo.hasMatchingRules ? "✅ Sim" : "❌ Não"}
+                            </div>
+                            <div>• Tem regra aplicável: {sample.debugInfo.hasApplicableRule ? "✅ Sim" : "❌ Não"}</div>
+                          </div>
+                        )}
                         {sample.applicableRule !== "Nenhuma" && (
                           <div className="mb-2 text-xs bg-white p-2 rounded">
                             <div>✅ Regra ativa: {sample.ruleActive ? "Sim" : "Não"}</div>
                             <div>✅ Auto-conciliação: {sample.ruleAutoReconcile ? "Sim" : "Não"}</div>
-                            <div>🔍 Padrão: "{sample.debugInfo.pattern}"</div>
-                            <div>🎯 Tipo da regra: {sample.debugInfo.ruleType}</div>
                           </div>
                         )}
                         <div
                           className={`p-2 rounded text-xs ${
-                            sample.applicableRule !== "Nenhuma" ? "bg-green-100" : "bg-red-100"
+                            sample.applicableRule !== "Nenhuma"
+                              ? "bg-green-100 border border-green-300"
+                              : "bg-red-100 border border-red-300"
                           }`}
                         >
-                          <strong>Resultado:</strong>
+                          <strong>Resultado Final:</strong>
                           <span
                             className={`font-mono ml-2 ${
                               sample.applicableRule !== "Nenhuma" ? "text-green-800" : "text-red-800"
@@ -1022,7 +1078,7 @@ export default function ConciliacaoPage() {
                   onClick={() => setFilterType("credit")}
                   className={filterType === "credit" ? "bg-green-600 hover:bg-green-700" : ""}
                 >
-                  Créditos ({unreconciledTransactions.filter((t) => t.transaction_type === "credit").length})
+                  ⚠️ Créditos ({unreconciledTransactions.filter((t) => t.transaction_type === "credit").length})
                 </Button>
                 <Button
                   variant={filterType === "debit" ? "default" : "outline"}
@@ -1080,7 +1136,11 @@ export default function ConciliacaoPage() {
                       filteredTransactions.map((transaction) => (
                         <TableRow
                           key={transaction.id}
-                          className={selectedTransactions.has(transaction.id) ? "bg-blue-50" : ""}
+                          className={`${selectedTransactions.has(transaction.id) ? "bg-blue-50" : ""} ${
+                            transaction.transaction_type === "credit"
+                              ? "border-l-4 border-l-green-400"
+                              : "border-l-4 border-l-red-400"
+                          }`}
                         >
                           <TableCell>
                             <Checkbox

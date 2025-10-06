@@ -30,6 +30,10 @@ import {
   Link,
   CheckCircle,
   Banknote,
+  Receipt,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
 } from "lucide-react"
 import {
   getTransactionsByMonth,
@@ -45,6 +49,7 @@ import {
 } from "@/lib/database"
 import { getPeople, getPendingDebtsByPerson, addDebtPayment, type Person, type Debt } from "@/lib/debts"
 import { isSupabaseConfigured } from "@/lib/supabase"
+import { getPreviousMonthBalance, getMonthBalance } from "@/lib/month-balance"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type React from "react"
 import { useState, useEffect } from "react"
@@ -67,6 +72,8 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showMigration, setShowMigration] = useState(false)
+  const [previousMonthBalance, setPreviousMonthBalance] = useState(0)
+  const [currentMonthBalance, setCurrentMonthBalance] = useState<any>(null)
 
   // Estados para vinculação com dívidas
   const [people, setPeople] = useState<Person[]>([])
@@ -121,6 +128,14 @@ export default function Dashboard() {
     const peopleData = await getPeople(userId)
     setPeople(peopleData)
 
+    // Carregar saldo do mês anterior
+    const prevBalance = await getPreviousMonthBalance(userId, currentMonth)
+    setPreviousMonthBalance(prevBalance)
+
+    // Carregar saldo do mês atual
+    const currBalance = await getMonthBalance(userId, currentMonth)
+    setCurrentMonthBalance(currBalance)
+
     setLoading(false)
   }
 
@@ -134,39 +149,29 @@ export default function Dashboard() {
 
   // Quando seleciona uma pessoa, carrega suas dívidas pendentes
   const handlePersonSelect = async (personId: string) => {
-    console.log("🔍 Selecionando pessoa:", personId)
     setSelectedPersonId(personId)
     setSelectedDebtId("")
     setDebtPaymentAmount("")
 
     if (personId && user) {
-      console.log("📋 Buscando dívidas para pessoa:", personId, "tipo transação:", type)
       const debts = await getPendingDebtsByPerson(user.id, personId)
-      console.log("💰 Dívidas encontradas:", debts)
-
-      // Filtrar dívidas compatíveis com o tipo de transação
       const compatibleDebts = debts.filter((debt) => {
         if (type === "entrada") {
-          return debt.type === "a_receber" // Entrada pode quitar dívida a receber
+          return debt.type === "a_receber"
         } else {
-          return debt.type === "a_pagar" // Despesa pode quitar dívida a pagar
+          return debt.type === "a_pagar"
         }
       })
-
-      console.log("✅ Dívidas compatíveis:", compatibleDebts)
       setPersonDebts(compatibleDebts)
     } else {
       setPersonDebts([])
     }
   }
 
-  // Quando seleciona uma dívida, sugere o valor restante
   const handleDebtSelect = (debtId: string) => {
-    console.log("💳 Selecionando dívida:", debtId)
     setSelectedDebtId(debtId)
     const selectedDebt = personDebts.find((debt) => debt.id === debtId)
     if (selectedDebt) {
-      console.log("💰 Dívida selecionada:", selectedDebt)
       setDebtPaymentAmount(selectedDebt.remaining_amount.toString())
     }
   }
@@ -176,21 +181,11 @@ export default function Dashboard() {
 
     if (!description || !amount || !user) return
 
-    console.log("🚀 Iniciando adição de transação...")
-    console.log("📝 Dados da transação:", { description, amount, type, currentMonth })
-    console.log("🔗 Vinculação ativa:", linkToDebt)
-    console.log("👤 Pessoa selecionada:", selectedPersonId)
-    console.log("💳 Dívida selecionada:", selectedDebtId)
-    console.log("💰 Valor do pagamento:", debtPaymentAmount)
-
     const newTransaction = await addTransaction(user.id, description, Number.parseFloat(amount), type, currentMonth)
 
     if (newTransaction) {
-      console.log("✅ Transação criada:", newTransaction)
-
       // Se está vinculando a uma dívida, registrar o pagamento
       if (linkToDebt && selectedDebtId && debtPaymentAmount) {
-        console.log("🔄 Processando pagamento de dívida...")
         const paymentAmount = Number.parseFloat(debtPaymentAmount)
         const success = await addDebtPayment(
           selectedDebtId,
@@ -201,11 +196,8 @@ export default function Dashboard() {
         )
 
         if (success) {
-          console.log("✅ Pagamento de dívida registrado com sucesso!")
           setPaymentSuccess(true)
-          setTimeout(() => setPaymentSuccess(false), 3000) // Remove o alerta após 3 segundos
-        } else {
-          console.error("❌ Erro ao registrar pagamento de dívida")
+          setTimeout(() => setPaymentSuccess(false), 3000)
         }
       }
 
@@ -224,6 +216,9 @@ export default function Dashboard() {
       // Atualizar sugestões
       const descriptionsData = await getDescriptionSuggestions(user.id)
       setSuggestions(descriptionsData)
+
+      // Recarregar saldo
+      loadData(user.id)
     }
   }
 
@@ -231,6 +226,7 @@ export default function Dashboard() {
     const success = await removeTransaction(id)
     if (success) {
       setTransactions(transactions.filter((t) => t.id !== id))
+      loadData(user.id)
     }
   }
 
@@ -293,12 +289,9 @@ export default function Dashboard() {
     setShowSuggestions(false)
   }
 
-  // Quando muda o tipo de transação, resetar seleções de dívida
   const handleTypeChange = (newType: "entrada" | "despesa") => {
-    console.log("🔄 Mudando tipo de transação para:", newType)
     setType(newType)
     if (linkToDebt && selectedPersonId) {
-      // Recarregar dívidas compatíveis com o novo tipo
       handlePersonSelect(selectedPersonId)
     }
   }
@@ -306,6 +299,7 @@ export default function Dashboard() {
   const totalEntradas = transactions.filter((t) => t.type === "entrada").reduce((sum, t) => sum + t.amount, 0)
   const totalDespesas = transactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + t.amount, 0)
   const saldoTotal = totalEntradas - totalDespesas
+  const saldoAcumulado = previousMonthBalance + saldoTotal
 
   const entradas = transactions.filter((t) => t.type === "entrada")
   const despesas = transactions.filter((t) => t.type === "despesa")
@@ -378,7 +372,7 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Header */}
+        {/* Header com botões compactos */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Financeiro Farinea</h1>
@@ -387,16 +381,20 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => router.push("/conciliacao")} variant="outline" size="sm">
-              <Banknote className="w-4 h-4 mr-2" />
-              Conciliação
+            <Button onClick={() => router.push("/gastos-fixos")} variant="outline" size="sm">
+              <Receipt className="w-4 h-4 mr-1" />
+              Gastos Fixos
             </Button>
             <Button onClick={() => router.push("/dividas")} variant="outline" size="sm">
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="w-4 h-4 mr-1" />
               Dívidas
             </Button>
+            <Button onClick={() => router.push("/conciliacao")} variant="outline" size="sm">
+              <Banknote className="w-4 h-4 mr-1" />
+              Conciliação
+            </Button>
             <Button onClick={handleLogout} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
+              <LogOut className="w-4 h-4 mr-1" />
               Sair
             </Button>
           </div>
@@ -406,9 +404,9 @@ export default function Dashboard() {
         {paymentSuccess && (
           <Alert className="bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Pagamento registrado!</AlertTitle>
+            <AlertTitle className="text-green-800">✅ Pagamento de Dívida Registrado!</AlertTitle>
             <AlertDescription className="text-green-700">
-              A dívida foi atualizada automaticamente com o pagamento realizado.
+              A dívida foi atualizada automaticamente. Você pode ver o histórico completo na aba de Dívidas.
             </AlertDescription>
           </Alert>
         )}
@@ -479,11 +477,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Resumo com Saldo Acumulado */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-green-600">Total Entradas</CardTitle>
+              <CardTitle className="text-sm font-medium text-green-600 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Total Entradas
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{formatCurrency(totalEntradas)}</div>
@@ -492,7 +493,10 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-600">Total Despesas</CardTitle>
+              <CardTitle className="text-sm font-medium text-red-600 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4" />
+                Total Despesas
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{formatCurrency(totalDespesas)}</div>
@@ -501,12 +505,43 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Saldo do Mês
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${saldoTotal >= 0 ? "text-green-600" : "text-red-600"}`}>
                 {formatCurrency(saldoTotal)}
               </div>
+              <p className="text-xs text-gray-500 mt-1">Entradas - Despesas</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-blue-300 bg-blue-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Saldo Acumulado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${saldoAcumulado >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                {formatCurrency(saldoAcumulado)}
+              </div>
+              <p className="text-xs text-blue-600 mt-1">Anterior: {formatCurrency(previousMonthBalance)}</p>
+              {currentMonthBalance?.ofx_balance !== undefined && (
+                <p className="text-xs text-gray-600 mt-1">
+                  OFX: {formatCurrency(currentMonthBalance.ofx_balance)}
+                  {currentMonthBalance.difference !== undefined && (
+                    <span
+                      className={`ml-1 ${Math.abs(currentMonthBalance.difference) > 0.01 ? "text-orange-600" : "text-green-600"}`}
+                    >
+                      (Dif: {formatCurrency(currentMonthBalance.difference)})
+                    </span>
+                  )}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -595,15 +630,15 @@ export default function Dashboard() {
                       }}
                     />
                     <Label htmlFor="linkToDebt" className="flex items-center gap-2">
-                      <Link className="w-4 h-4" />
-                      Vincular a uma dívida
+                      <Link className="w-4 h-4" />🎯 Registrar pagamento de dívida (pessoa{" "}
+                      {type === "entrada" ? "me pagou" : "eu paguei"})
                     </Label>
                   </div>
 
                   {linkToDebt && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                       <div>
-                        <Label htmlFor="person">Pessoa</Label>
+                        <Label htmlFor="person">👤 Pessoa</Label>
                         <Select value={selectedPersonId} onValueChange={handlePersonSelect}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione uma pessoa" />
@@ -619,7 +654,7 @@ export default function Dashboard() {
                       </div>
 
                       <div>
-                        <Label htmlFor="debt">Dívida</Label>
+                        <Label htmlFor="debt">💳 Dívida para dar baixa</Label>
                         <Select
                           value={selectedDebtId}
                           onValueChange={handleDebtSelect}
@@ -631,7 +666,9 @@ export default function Dashboard() {
                                 !selectedPersonId
                                   ? "Selecione uma pessoa primeiro"
                                   : personDebts.length === 0
-                                    ? "Nenhuma dívida compatível"
+                                    ? type === "entrada"
+                                      ? "Pessoa não tem dívidas com você"
+                                      : "Você não tem dívidas com essa pessoa"
                                     : "Selecione uma dívida"
                               }
                             />
@@ -639,7 +676,7 @@ export default function Dashboard() {
                           <SelectContent>
                             {personDebts.map((debt) => (
                               <SelectItem key={debt.id} value={debt.id}>
-                                {debt.description} - {formatCurrency(debt.remaining_amount)}
+                                {debt.description} - Falta: {formatCurrency(debt.remaining_amount)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -647,7 +684,7 @@ export default function Dashboard() {
                       </div>
 
                       <div>
-                        <Label htmlFor="debtPayment">Valor do Pagamento</Label>
+                        <Label htmlFor="debtPayment">💰 Valor a dar baixa</Label>
                         <Input
                           id="debtPayment"
                           type="number"
@@ -660,9 +697,14 @@ export default function Dashboard() {
                       </div>
 
                       {selectedDebtId && (
-                        <div className="md:col-span-3 text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                          <strong>Dica:</strong> Esta transação será registrada normalmente e também será vinculada como
-                          pagamento da dívida selecionada. O valor restante da dívida será atualizado automaticamente.
+                        <div className="md:col-span-3 text-sm bg-green-50 p-3 rounded border-2 border-green-200">
+                          <strong className="text-green-800">✅ O que vai acontecer:</strong>
+                          <div className="text-green-700 mt-1 space-y-1">
+                            <p>1. A transação será registrada normalmente no seu controle financeiro</p>
+                            <p>2. A dívida selecionada será atualizada automaticamente com este pagamento</p>
+                            <p>3. O valor restante da dívida será recalculado</p>
+                            <p>4. Você verá o histórico completo na aba de Dívidas</p>
+                          </div>
                         </div>
                       )}
                     </div>
